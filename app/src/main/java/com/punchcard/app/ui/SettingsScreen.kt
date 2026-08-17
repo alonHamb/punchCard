@@ -59,6 +59,7 @@ fun SettingsScreen(viewModel: MainViewModel, onClose: () -> Unit) {
     var prefilled by remember { mutableStateOf(false) }
     var saveMessage by remember { mutableStateOf<String?>(null) }
     val restoreStatus by viewModel.restoreStatus.collectAsState()
+    val spreadsheetImportStatus by viewModel.spreadsheetImportStatus.collectAsState()
 
     LaunchedEffect(paySettings) {
         if (!prefilled && paySettings != null) {
@@ -76,6 +77,10 @@ fun SettingsScreen(viewModel: MainViewModel, onClose: () -> Unit) {
 
     val restorePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) viewModel.restoreFromFolder(uri)
+    }
+
+    val spreadsheetPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) viewModel.importFromSpreadsheet(uri)
     }
 
     Column(
@@ -207,6 +212,40 @@ fun SettingsScreen(viewModel: MainViewModel, onClose: () -> Unit) {
             Spacer(Modifier.height(10.dp))
             Text(
                 "Note: this only restores logged days (start/end/hours/money). Your hourly rate and tax settings aren't stored in the backup files, so re-enter those above if needed.",
+                color = Color(0xFF94A3B8),
+                fontSize = 11.sp,
+            )
+        }
+
+        Spacer(Modifier.height(20.dp))
+        SettingsCard {
+            Text("Import from spreadsheet", color = Color(0xFF0F172A), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Bring in days from an Excel (.xlsx) spreadsheet with a header row containing \"date\", \"start of day\", and \"end of day\" columns — any other columns are ignored. Any date found there that isn't already logged in the app gets added; days already here are never touched or overwritten.",
+                color = Color(0xFF64748B),
+                fontSize = 12.sp,
+            )
+            Spacer(Modifier.height(14.dp))
+            Button(
+                onClick = {
+                    spreadsheetPicker.launch(
+                        arrayOf("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+                    )
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF1F5F9), contentColor = Color(0xFF0F172A)),
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+            ) {
+                Text("Choose spreadsheet (.xlsx)")
+            }
+            spreadsheetImportStatus?.let {
+                Spacer(Modifier.height(8.dp))
+                Text(it, color = Color(0xFF64748B), fontSize = 12.sp)
+            }
+            Spacer(Modifier.height(10.dp))
+            Text(
+                "Note: only the date/start/end columns are read. Your hourly rate and tax settings aren't read from the file, so this app's current Settings apply to the imported days.",
                 color = Color(0xFF94A3B8),
                 fontSize = 11.sp,
             )

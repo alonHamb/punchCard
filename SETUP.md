@@ -45,6 +45,11 @@ itself. There is no `INTERNET` permission in the manifest at all.
   reinstall (or moving to a new phone), since the app's own local
   database gets wiped along with the app but the backup files, sitting
   outside app storage, don't.
+- An **"Import from spreadsheet"** button in Settings reads a `.xlsx`
+  file with "date"/"start of day"/"end of day" columns and adds any day
+  it finds that isn't already logged locally — never overwrites a day
+  you've already got. Useful for bringing in a spreadsheet you were
+  keeping by hand before switching to this app.
 
 ## 1. Open the project
 
@@ -149,6 +154,11 @@ What's covered, one file per area:
   (see CHANGELOG v6).
 - `backup/BackupWorkerLogicTest.kt` — the 18:00–06:00 backup-window
   boundary hours.
+- `backup/XlsxFormatTest.kt` — the spreadsheet-import parser: Excel
+  date/time conversion at its valid-range edges, shared-string
+  extraction, matching header columns by name regardless of order, and
+  a realistic sheet (including a blank formula-only template row like
+  the real export format has) parsing to the right entries.
 - `ui/DateTimeInputTest.kt` — every accepted/rejected manual date/time
   entry format (punctuated and digit-only, calendar-invalid dates, leap
   years, malformed input), plus everything a paste/autofill/Bluetooth
@@ -160,9 +170,10 @@ What's covered, one file per area:
 - `ui/DateFormatTest.kt` — the ISO ↔ DD/MM/YYYY display conversion,
   including that it round-trips exactly back through `normalizeDate`.
 - `data/HoursRepositoryTest.kt` — Start/End logging, Manage-screen
-  edits, deletes, and the backup-restore merge (fills in missing days,
-  never overwrites what's already logged locally) — tested against
-  in-memory fake DAOs, so no real database is involved.
+  edits, deletes, the backup-restore merge, and the spreadsheet-import
+  merge (all fill in missing days, never overwrite what's already
+  logged locally) — tested against in-memory fake DAOs, so no real
+  database is involved.
 
 **Not covered by these (would need an emulator/device, i.e. Android
 Studio's `androidTest` source set, which this project doesn't have

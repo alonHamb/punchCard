@@ -1,6 +1,29 @@
 # Changelog
 
-## v10 — Renamed to PunchCard (current)
+## v11 — Import days from an Excel spreadsheet (current)
+- New Settings section, **"Import from spreadsheet"**: pick a `.xlsx`
+  file with "date"/"start of day"/"end of day" header columns (matched
+  by name, not fixed column letters — any other columns are ignored)
+  and any day found there that isn't already logged locally gets added,
+  same never-overwrite rule as restoring from a CSV backup. Built
+  against a real spreadsheet export with per-day pay/tax columns after
+  the three needed ones, which this correctly ignores.
+- No third-party spreadsheet library: `.xlsx` is just a zip of XML
+  parts, so the new `backup/XlsxFormat.kt` (pure Kotlin, unit-tested)
+  and `backup/XlsxImport.kt` (thin `java.util.zip`/SAF wrapper) read
+  exactly the two parts needed — one worksheet + shared strings — the
+  same "hand-roll it, no extra dependency" approach `CsvFormat.kt`
+  already used for the CSV backup format.
+- Pay/tax settings are never read from the spreadsheet (same reasoning
+  as CSV restore) — the app's current Settings apply to every imported
+  day.
+- Verified against the real spreadsheet this was built against (a
+  9-day sample) before writing it up, in addition to the new unit
+  tests: `backup/XlsxFormatTest.kt` (18 tests) and two new
+  `HoursRepositoryTest` cases for the import-merge behavior. Full
+  suite: 98/98 tests passing.
+
+## v10 — Renamed to PunchCard
 - Renamed the project end-to-end: top-level folder `hour log app` →
   `PunchCard`, Kotlin package/applicationId `com.hourslog.app` →
   `com.punchcard.app`, `Application` subclass `HoursLogApp` →

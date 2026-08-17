@@ -134,4 +134,28 @@ class HoursRepository(
         }
         return imported
     }
+
+    /**
+     * Merges rows parsed from a user-picked .xlsx spreadsheet (see
+     * XlsxImport.readEntries) into the local database — same "only fills
+     * in dates that don't already have a local row" rule as
+     * [importFromBackup]. Unlike a backup restore, these rows have never
+     * been backed up and don't carry a precomputed hours/money figure
+     * (spreadsheets don't know this app's pay settings), so each one
+     * goes through [setEntryTimes] instead of a raw upsert — that
+     * recomputes hours/money against whatever pay settings are in
+     * effect on that date and queues the day for the next backup, same
+     * as adding it by hand on the Manage screen would. Returns how many
+     * rows were actually imported.
+     */
+    suspend fun importFromSpreadsheet(entries: List<LogEntry>): Int {
+        var imported = 0
+        for (e in entries) {
+            if (logDao.getByDate(e.date) == null) {
+                setEntryTimes(e.date, e.startTime, e.endTime)
+                imported++
+            }
+        }
+        return imported
+    }
 }

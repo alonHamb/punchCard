@@ -161,6 +161,35 @@ class HoursRepositoryTest {
     }
 
     @Test
+    fun `importFromSpreadsheet fills in missing dates only, never overwrites local data`() = runTest {
+        repo.setEntryTimes("2026-08-17", "09:00", "17:00")
+
+        val fromSpreadsheet = listOf(
+            LogEntry(date = "2026-08-17", startTime = "08:00", endTime = "16:00"), // conflicts with local
+            LogEntry(date = "2026-08-16", startTime = "09:00", endTime = "17:00"),
+        )
+        val imported = repo.importFromSpreadsheet(fromSpreadsheet)
+
+        assertEquals(1, imported) // only the 16th
+        assertEquals("09:00", repo.getEntry("2026-08-17")!!.startTime) // untouched
+        assertEquals("09:00", repo.getEntry("2026-08-16")!!.startTime) // imported
+    }
+
+    @Test
+    fun `importFromSpreadsheet recomputes hours and money against current settings`() = runTest {
+        // Spreadsheet rows never carry hours/money (the file doesn't know
+        // this app's pay settings) — importing must compute them fresh,
+        // same as adding a day by hand on the Manage screen would.
+        val fromSpreadsheet = listOf(LogEntry(date = "2026-08-16", startTime = "09:00", endTime = "17:00"))
+        repo.importFromSpreadsheet(fromSpreadsheet)
+
+        val entry = repo.getEntry("2026-08-16")!!
+        assertEquals(7.0, entry.hours!!, 0.001) // 8h raw minus fixed breaks
+        assertEquals(420.0, entry.money!!, 0.001) // 7h * 60 (the settings from setUp())
+        assertTrue(!entry.backedUp) // freshly imported, queued for the next backup
+    }
+
+    @Test
     fun `getMonthSummary uses the settings in effect on each entry's own date`() = runTest {
         // A mid-month rate change must apply only to entries on/after it.
         payDao.rows.add(PaySettings(effectiveDate = "2026-08-15", hourlyRate = 80.0, creditPoints = 2.25, pensionPct = 6.0))

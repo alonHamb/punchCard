@@ -54,6 +54,13 @@ and evolved, over several iterations, into this native rewrite. See
   and fills in whatever's missing locally — without ever overwriting a
   day you've already re-logged. (Pay/tax settings aren't in the CSVs, so
   those need a quick re-entry after restoring.)
+- **Import days from an Excel spreadsheet.** Settings has an "Import from
+  spreadsheet" button that reads a `.xlsx` file with a header row
+  containing "date", "start of day", and "end of day" columns (any other
+  columns — formulas, pay figures, whatever — are ignored) and adds any
+  day it finds that isn't already logged locally, same never-overwrite
+  rule as restoring from backup. Handy for bringing in a spreadsheet you
+  were already keeping by hand before switching to this app.
 
 ## Screens
 
@@ -61,7 +68,7 @@ and evolved, over several iterations, into this native rewrite. See
 |---|---|
 | **Home** | Today's Start/End button, today's numbers, this month's pay breakdown, recent days, backup status. |
 | **Manage entries** | Browse any month; tap a day to edit its times or delete it; add a day retroactively. |
-| **Settings** | Hourly rate / tax credit points / pension %, and the backup folder picker. |
+| **Settings** | Hourly rate / tax credit points / pension %, the backup folder picker, and spreadsheet import. |
 
 ## Project structure
 
@@ -69,7 +76,8 @@ and evolved, over several iterations, into this native rewrite. See
 app/src/main/java/com/punchcard/app/
 ├── data/       Room entities, DAOs, and the repository (single source of truth for the DB)
 ├── logic/      PayCalculator — pure Kotlin, no Android deps, unit-tested
-├── backup/     WorkManager job, SAF CSV writer, scheduling, folder preference
+├── backup/     WorkManager job, SAF CSV writer/reader, scheduling, folder
+│               preference, and the .xlsx spreadsheet-import parser
 └── ui/         Compose screens and the ViewModel
 ```
 

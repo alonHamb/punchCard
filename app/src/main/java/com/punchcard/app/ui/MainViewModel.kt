@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.punchcard.app.backup.BackupPreferences
 import com.punchcard.app.backup.BackupScheduler
 import com.punchcard.app.backup.CsvBackup
+import com.punchcard.app.backup.XlsxImport
 import com.punchcard.app.data.AppDatabase
 import com.punchcard.app.data.HoursRepository
 import com.punchcard.app.data.LogEntry
@@ -234,5 +235,34 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearRestoreStatus() {
         _restoreStatus.value = null
+    }
+
+    private val _spreadsheetImportStatus = MutableStateFlow<String?>(null)
+    val spreadsheetImportStatus: StateFlow<String?> = _spreadsheetImportStatus.asStateFlow()
+
+    /**
+     * Reads a .xlsx file picked via Settings' "Import from spreadsheet"
+     * (see XlsxFormat.kt for the expected column headers) and adds any
+     * day it finds that isn't already logged locally — same "never
+     * overwrite what's already here" rule as restoring from a CSV
+     * backup. Pay/tax settings are never read from the file; the app's
+     * current Settings apply, same as after a backup restore.
+     */
+    fun importFromSpreadsheet(fileUri: Uri) {
+        viewModelScope.launch {
+            val app = getApplication<Application>()
+            val found = withContext(Dispatchers.IO) { XlsxImport.readEntries(app, fileUri) }
+            val imported = repo.importFromSpreadsheet(found)
+            _spreadsheetImportStatus.value = when {
+                found.isEmpty() -> "No rows found — check the file has date/start/end columns like the example format."
+                imported == 0 -> "Found ${found.size} day${if (found.size != 1) "s" else ""} in the file, but everything was already logged."
+                else -> "Imported $imported of ${found.size} day${if (found.size != 1) "s" else ""} found (already-logged days were skipped)."
+            }
+            loadMonth(_viewMonth.value)
+        }
+    }
+
+    fun clearSpreadsheetImportStatus() {
+        _spreadsheetImportStatus.value = null
     }
 }

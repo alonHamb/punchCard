@@ -195,6 +195,73 @@ the full effective-dated settings history, only a snapshot of whichever
 settings were active when each row was written — so Settings prompts
 the user to re-enter their rate/credit points/pension after a restore.
 
+## Spreadsheet import
+
+Settings' "Import from spreadsheet" reads a user-picked `.xlsx` file and
+adds any day it finds that isn't already logged locally — same
+never-overwrite rule as restoring from a CSV backup, and the same
+split between pure parsing logic and a thin Android I/O wrapper used
+throughout `backup/`:
+
+- **`backup/XlsxFormat.kt`** (`internal object`, pure Kotlin, no
+  Android deps) does the actual parsing, covered by `XlsxFormatTest`.
+  A `.xlsx` is a zip of XML parts (OOXML); this reads exactly two of
+  them — one worksheet's `sheet*.xml` and `sharedStrings.xml` (cells
+  typed `t="s"` store an index into this list rather than inline text)
+  — via hand-rolled regexes rather than a full XML parser or a
+  third-party spreadsheet library, consistent with `CsvFormat`'s
+  approach to CSV. `pickSheetEntryName` prefers `sheet1.xml`, falling
+  back to whichever worksheet part sorts first if a workbook somehow
+  lacks one (multi-sheet `.xlsx` files aren't otherwise specially
+  supported — only the one chosen worksheet is read).
+  - Columns are matched by **header text**, not fixed column letters:
+    the first row found is searched case-insensitively for cells
+    containing "date", "start", and "end" as substrings — so a sheet
+    with the pay/tax columns this feature was built against (which
+    come *after* the three it needs, and are otherwise ignored
+    entirely) still imports correctly, and so would one with those
+    three columns in a different order.
+  - `excelSerialToIsoDate`/`excelFractionToTime` convert Excel's
+    numeric date-serial (days since the 1899-12-30 epoch) and
+    time-of-day fraction (0.0–1.0) representations to this app's
+    `"YYYY-MM-DD"`/`"HH:mm"` storage format, rejecting non-finite or
+    out-of-range values defensively — the same posture as the manual
+    entry fields, just applied to a whole external file instead of a
+    text box. A date cell typed as *text* rather than a real Excel
+    date (`t="s"` on what should be the date column) is also rejected
+    rather than misread as a shared-string index.
+  - A row is skipped entirely if it has no valid date, or if it has
+    neither a start nor an end time — this is what makes the
+    formula-only template rows past a sheet's real data (present in
+    the format this was built against, since its formulas are
+    dragged down further than the logged days) come back empty rather
+    than as bogus entries.
+- **`backup/XlsxImport.kt`** is the thin wrapper: opens the picked
+  `content://` URI via `ContentResolver`, and does a single forward-only
+  pass over every zip entry with `java.util.zip.ZipInputStream` —
+  SAF streams aren't always seekable, so this can't jump straight to
+  the parts it wants by name — keeping only the chosen worksheet and
+  shared-strings text before handing them to `XlsxFormat`. Any
+  exception (not a real `.xlsx`, corrupt zip, unexpected internal
+  layout) is caught and treated as "nothing found", same forgiving
+  posture as `CsvBackup`'s file reads.
+- **`HoursRepository.importFromSpreadsheet(entries)`** merges the
+  parsed rows in: for each one, if the local DB has no row for that
+  date yet, it goes through `setEntryTimes` (recomputing hours/money
+  against whichever pay settings are in effect on that date, and
+  queuing the day for the next backup) exactly as if it had been typed
+  into the Manage screen's "Add day" dialog by hand; a date that
+  already has a local entry is left untouched. Unlike
+  `importFromBackup`, spreadsheet rows never carry a precomputed
+  hours/money figure — the file has no idea what this app's pay
+  settings are — so they can't just be upserted as-is.
+- Pay/tax settings are never read from the spreadsheet (even though
+  the format this was built against happens to carry an hourly rate
+  and credit points in its own summary columns) — same reasoning as
+  CSV restore: there's no reliable way to map a single snapshot value
+  onto this app's effective-dated settings history, so the app's
+  current Settings apply to every imported day instead.
+
 ## Manage screen
 
 `ui/ManageScreen.kt` is the one screen that writes outside the normal
@@ -246,6 +313,14 @@ and parsing rule in the app, one file per area:
   CSV escape/parse/merge logic (see "Backup system" above) and the
   18:00–06:00 window boundary, both pulled into pure functions
   specifically so they're testable without SAF/WorkManager.
+- `backup/XlsxFormatTest.kt` — the spreadsheet-import parser (see
+  "Spreadsheet import" above): Excel serial-date/time-fraction
+  conversion at their valid-range boundaries, shared-string extraction
+  (including split rich-text runs and XML entity unescaping),
+  header-column matching regardless of column order or extra columns,
+  and a realistic sheet (header + real data + a blank formula-only
+  template row, mirroring the actual export format this was built
+  against) parsing to the correct entries.
 - `ui/DateTimeInputTest.kt` + `ui/DateFormatTest.kt` — every manual
   date/time entry format `normalizeDate`/`normalizeTime` accept or
   reject — including inputs only a paste/autofill/Bluetooth keyboard
@@ -254,10 +329,12 @@ and parsing rule in the app, one file per area:
   the ISO ↔ DD/MM/YYYY display conversion, including that the two
   round-trip through each other exactly.
 - `data/HoursRepositoryTest.kt` — `HoursRepository`'s Start/End logging,
-  Manage-screen edits, deletes, and the backup-restore merge, run
-  against hand-written in-memory fakes of `LogEntryDao`/
-  `PaySettingsDao` (implementing the same `@Dao` interfaces Room
-  generates from) rather than a real SQLite database.
+  Manage-screen edits, deletes, the backup-restore merge, and the
+  spreadsheet-import merge (never overwrites a locally-logged date;
+  recomputes hours/money against current settings rather than trusting
+  the file), run against hand-written in-memory fakes of
+  `LogEntryDao`/`PaySettingsDao` (implementing the same `@Dao`
+  interfaces Room generates from) rather than a real SQLite database.
 
 A few pieces that were originally `private` were changed to `internal`
 specifically to make this possible, with no behavior change:
