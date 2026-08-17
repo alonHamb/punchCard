@@ -1,6 +1,13 @@
 # Changelog
 
-## v11 — Import days from an Excel spreadsheet (current)
+## v12 — App icon redesigned as a punch card (current)
+- The launcher icon's foreground (`ic_launcher_foreground.xml`) no
+  longer shows a clock face — it's a row of four punched holes plus a
+  couple of printed time-entry lines on the same white card, matching
+  the app's actual name. Background color, card shape, and color
+  palette all unchanged.
+
+## v11 — Import days from an Excel spreadsheet
 - New Settings section, **"Import from spreadsheet"**: pick a `.xlsx`
   file with "date"/"start of day"/"end of day" header columns (matched
   by name, not fixed column letters — any other columns are ignored)
