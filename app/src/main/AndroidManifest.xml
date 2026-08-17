@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+      Notice what's NOT here: no INTERNET permission. This app never makes
+      a network call itself. The nightly backup writes a CSV file through
+      Android's Storage Access Framework into a folder you choose (e.g. a
+      folder your Google Drive app syncs) — whatever app owns that folder
+      handles any actual upload, under its own permissions, on its own
+      schedule. ACCESS_NETWORK_STATE below is only used to check whether
+      the current connection is wifi before writing that file.
+    -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <application
+        android:name=".PunchCardApp"
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="@string/app_name"
+        android:theme="@style/Theme.PunchCard"
+        android:supportsRtl="true">
+
+        <activity
+            android:name=".ui.MainActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.PunchCard">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+    </application>
+
+</manifest>

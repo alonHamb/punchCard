@@ -1,0 +1,7 @@
+<resources>
+    <color name="brand_bg">#0F172A</color>
+    <color name="brand_accent">#2563EB</color>
+    <color name="brand_start">#16A34A</color>
+    <color name="brand_end">#EA580C</color>
+    <color name="ic_launcher_background">#2563EB</color>
+</resources>
