@@ -6,8 +6,6 @@
   couple of printed time-entry lines on the same white card, matching
   the app's actual name. Background color, card shape, and color
   palette all unchanged.
-- Tightened the card's corner radius (8dp → 5dp) so it reads a bit
-  less like a rounded chat bubble and a bit more like an actual card.
 
 ## v11 — Import days from an Excel spreadsheet
 - New Settings section, **"Import from spreadsheet"**: pick a `.xlsx`
