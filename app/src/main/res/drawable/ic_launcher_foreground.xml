@@ -7,7 +7,7 @@
     <!-- Rounded white card -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M32,30 h44 a8,8 0 0 1 8,8 v32 a8,8 0 0 1 -8,8 h-44 a8,8 0 0 1 -8,-8 v-32 a8,8 0 0 1 8,-8 z" />
+        android:pathData="M29,30 h50 a5,5 0 0 1 5,5 v38 a5,5 0 0 1 -5,5 h-50 a5,5 0 0 1 -5,-5 v-38 a5,5 0 0 1 5,-5 z" />
     <!-- Row of punched holes -->
     <path
         android:fillColor="#2563EB"
