@@ -50,6 +50,10 @@ itself. There is no `INTERNET` permission in the manifest at all.
   it finds that isn't already logged locally — never overwrites a day
   you've already got. Useful for bringing in a spreadsheet you were
   keeping by hand before switching to this app.
+- A **home-screen widget**: add it like any other Android widget
+  (long-press the home screen → Widgets → PunchCard) to Start/End your
+  day and see this month's net income without opening the app. Stays in
+  sync with whatever you do inside the app too, not just its own button.
 
 ## 1. Open the project
 

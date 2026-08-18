@@ -60,6 +60,8 @@ dependencies {
     implementation("androidx.work:work-runtime-ktx:2.10.0")
     // Storage Access Framework helper for writing the backup CSV into a user-chosen folder
     implementation("androidx.documentfile:documentfile:1.0.1")
+    // Home-screen widget (Start/End button + this month's net income)
+    implementation("androidx.glance:glance-appwidget:1.1.1")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 

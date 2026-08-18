@@ -16,6 +16,9 @@ A technical walkthrough of how PunchCard is put together. See
 - **Storage Access Framework** (`DocumentFile`, `OpenDocumentTree`) for
   writing the backup CSV into a user-chosen folder without needing
   OAuth, a cloud SDK, or the `INTERNET` permission.
+- **Jetpack Glance** (`glance-appwidget`) for the home-screen widget —
+  Compose-style declarative UI compiled down to `RemoteViews`, so no
+  hand-written widget XML layouts.
 - No networking library, no HTTP client, no `INTERNET` permission —
   by design (see `AndroidManifest.xml`'s comment block).
 
@@ -261,6 +264,54 @@ throughout `backup/`:
   CSV restore: there's no reliable way to map a single snapshot value
   onto this app's effective-dated settings history, so the app's
   current Settings apply to every imported day instead.
+
+## Home-screen widget
+
+`widget/` (three small files, no separate `logic` split needed since
+there's no calculation of its own to isolate — everything here is
+either Android/Glance plumbing or a direct call into the same
+`HoursRepository`/`PayCalculator` the rest of the app already uses):
+
+- **`PunchCardWidget.kt`** — the `GlanceAppWidget`. `provideGlance`
+  builds a fresh `HoursRepository` from `AppDatabase.getInstance(context)`
+  (the same "construct it from Context each time, no DI framework" habit
+  `MainViewModel` and `BackupWorker` already have), reads today's
+  `LogEntry` to decide Start/End mode (`startTime == null` → Start,
+  same rule `MainScreen`'s button uses) and this month's
+  `PayCalculator.MonthSummary` for the net-income figure, then renders
+  both through `provideContent { ... }` — a dark card (matching
+  `brand_bg`) with a "This month" label + net income, and a colored box
+  below (green/orange, matching `BigLogButton`'s Start/Day colors) that
+  triggers `LogNowAction` on tap. `cornerRadius` (rounded corners) only
+  takes effect on Android 12+ — a Glance/platform limitation, not a bug;
+  the widget still renders correctly (just square-cornered) below that.
+- **`LogNowAction.kt`** — the tap handler (`ActionCallback`). Mirrors
+  `MainViewModel.logNow()` exactly: builds a repository the same way,
+  calls `HoursRepository.logNext(date, time)` (which re-reads the DB
+  fresh to decide Start vs. End, so it's never fooled by a stale
+  widget), then calls `PunchCardWidget().update(context, glanceId)` to
+  redraw immediately with the new mode/figure.
+- **`PunchCardWidgetReceiver.kt`** — the trivial `GlanceAppWidgetReceiver`
+  the manifest points at; just supplies the `GlanceAppWidget` instance.
+- **`res/xml/punchcard_widget_info.xml`** — `updatePeriodMillis` is set
+  to 30 minutes, the OS-enforced minimum for this mechanism — it's only
+  a safety-net refresh for the rare case of the calendar day rolling
+  over while the widget sits untouched. Real freshness comes from
+  explicit `update()`/`updateAll()` calls: `LogNowAction` updates right
+  after its own tap, and `MainViewModel` calls
+  `PunchCardWidget().updateAll(context)` at the end of every function
+  that mutates logged days or pay settings (`logNow`, `updateEntryTimes`,
+  `deleteEntry`, `savePaySettings`, `restoreFromFolder`,
+  `importFromSpreadsheet`) — so editing a day in the Manage screen, or
+  restoring a backup, reflects on an already-placed widget immediately
+  rather than waiting up to 30 minutes. `updateAll` is a no-op if the
+  widget hasn't been placed on any home screen, so these calls are safe
+  regardless.
+- Not covered by the unit test suite — Glance composables render to
+  actual `RemoteViews`/`AppWidgetManager` calls, which (like the rest of
+  the Compose UI) need a device/emulator to exercise for real; the
+  calculation and Start/End-mode logic it calls into (`PayCalculator`,
+  `HoursRepository.logNext`) is already covered independently.
 
 ## Manage screen
 

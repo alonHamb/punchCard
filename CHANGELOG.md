@@ -1,6 +1,29 @@
 # Changelog
 
-## v12 — App icon redesigned as a punch card (current)
+## v13 — Home-screen widget (current)
+- New **home-screen widget** (`widget/`, built with Jetpack Glance —
+  `androidx.glance:glance-appwidget:1.1.1`): a Start/End button (same
+  Start/End logic and colors as the in-app button, mirroring
+  `MainViewModel.logNow()`) plus this month's net income — the same
+  figure the Home screen's "Net income" row shows (gross minus income
+  tax minus National Insurance/health minus pension).
+- Stays in sync with the app, not just its own taps: `MainViewModel`
+  now refreshes the widget after every function that could change what
+  it shows (logging, editing, deleting, saving pay settings, restoring
+  from backup, importing a spreadsheet), in addition to the widget
+  updating itself immediately after its own button tap.
+- No third-party widget library — Glance is Google's own first-party
+  Compose-for-widgets toolkit, consistent with the rest of the app's
+  AndroidX-only dependency list.
+- Verified the full Glance API surface (package paths, `cornerRadius`'s
+  Android-12+-only behavior, the bundled default loading layout) against
+  the real androidx source before writing any code, since the official
+  docs pages didn't render fetchable content in this environment.
+- Full suite: 98/98 tests passing — the widget's own UI isn't unit
+  testable (same limitation as the rest of the Compose UI), but every
+  calculation/logic path it calls into already was.
+
+## v12 — App icon redesigned as a punch card
 - The launcher icon's foreground (`ic_launcher_foreground.xml`) no
   longer shows a clock face — it's a row of four punched holes plus a
   couple of printed time-entry lines on the same white card, matching

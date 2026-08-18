@@ -61,6 +61,10 @@ and evolved, over several iterations, into this native rewrite. See
   day it finds that isn't already logged locally, same never-overwrite
   rule as restoring from backup. Handy for bringing in a spreadsheet you
   were already keeping by hand before switching to this app.
+- **Home-screen widget.** Log Start/End and see this month's net income
+  (after tax, National Insurance, and pension — the same figure the Home
+  screen's "Net income" row shows) without opening the app. Stays in
+  sync with anything you do inside the app, not just its own button.
 
 ## Screens
 
@@ -78,7 +82,8 @@ app/src/main/java/com/punchcard/app/
 ├── logic/      PayCalculator — pure Kotlin, no Android deps, unit-tested
 ├── backup/     WorkManager job, SAF CSV writer/reader, scheduling, folder
 │               preference, and the .xlsx spreadsheet-import parser
-└── ui/         Compose screens and the ViewModel
+├── ui/         Compose screens and the ViewModel
+└── widget/     Home-screen widget (Jetpack Glance)
 ```
 
 See [`ARCHITECTURE.md`](ARCHITECTURE.md) for a full technical walkthrough

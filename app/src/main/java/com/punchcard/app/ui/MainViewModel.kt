@@ -14,6 +14,8 @@ import com.punchcard.app.data.HoursRepository
 import com.punchcard.app.data.LogEntry
 import com.punchcard.app.data.PaySettings
 import com.punchcard.app.logic.PayCalculator
+import com.punchcard.app.widget.PunchCardWidget
+import androidx.glance.appwidget.updateAll
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -89,6 +91,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /** Re-renders the home-screen widget (Start/End button + this
+     *  month's net income) after anything that could have changed what
+     *  it shows — called at the end of every mutating function below.
+     *  Safe to call even if the user hasn't placed the widget. */
+    private suspend fun refreshWidget() {
+        PunchCardWidget().updateAll(getApplication())
+    }
+
     fun shiftMonth(delta: Int) {
         val (y, m) = _viewMonth.value.split("-").map { it.toInt() }
         val d = LocalDate.of(y, m, 1).plusMonths(delta.toLong())
@@ -113,6 +123,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val (_, complete) = repo.logNext(date, time)
             if (_viewMonth.value == date.substring(0, 7)) loadMonth(_viewMonth.value)
             if (complete) _backupStatus.value = "Day complete — queued for tonight's backup."
+            refreshWidget()
         }
     }
 
@@ -148,6 +159,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repo.setEntryTimes(date, startTime, endTime)
             if (_viewMonth.value == date.substring(0, 7)) loadMonth(_viewMonth.value)
+            refreshWidget()
         }
     }
 
@@ -159,6 +171,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repo.deleteEntry(date)
             if (_viewMonth.value == date.substring(0, 7)) loadMonth(_viewMonth.value)
+            refreshWidget()
         }
     }
 
@@ -166,6 +179,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repo.savePaySettings(hourlyRate, creditPoints, pensionPct, overtimeEnabled, todayLocal())
             loadMonth(_viewMonth.value)
+            refreshWidget()
         }
     }
 
@@ -230,6 +244,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _folderName.value = name
             }
             loadMonth(_viewMonth.value)
+            refreshWidget()
         }
     }
 
@@ -259,6 +274,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 else -> "Imported $imported of ${found.size} day${if (found.size != 1) "s" else ""} found (already-logged days were skipped)."
             }
             loadMonth(_viewMonth.value)
+            refreshWidget()
         }
     }
 

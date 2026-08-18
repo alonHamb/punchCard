@@ -32,6 +32,18 @@
             </intent-filter>
         </activity>
 
+        <!-- Home-screen widget: Start/End button + this month's net income. -->
+        <receiver
+            android:name=".widget.PunchCardWidgetReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/punchcard_widget_info" />
+        </receiver>
+
     </application>
 
 </manifest>
