@@ -345,6 +345,10 @@ private fun MonthCard(
                     MonthRow("Nat'l Insurance + health", "−₪" + fmtNum(s.niHealth), BrandDanger)
                     MonthRow("Pension (${fmtNum(s.pensionPct)}%)", "−₪" + fmtNum(s.pension), BrandDanger)
                     MonthRow("Net income", "₪" + fmtNum(s.net), BrandStart, emphasize = true)
+                    if (s.savingsPct > 0) {
+                        MonthRow("Savings (${fmtNum(s.savingsPct)}% of net)", "₪" + fmtNum(s.savings), BrandTextOnCard)
+                        MonthRow("Left to spend", "₪" + fmtNum(s.leftToSpend), BrandStart, emphasize = true)
+                    }
                     Spacer(Modifier.height(10.dp))
                     Text(
                         "Estimate for Israeli salaried employees using 2026 tax brackets, ${fmtNum(s.creditPoints)} credit points, National Insurance + health tax rates" +

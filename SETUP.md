@@ -27,6 +27,10 @@ itself. There is no `INTERNET` permission in the manifest at all.
   computed from your hourly rate and tax credit points, set once in
   Settings; changes only apply from that day onward so past months
   never shift.
+- An optional **savings target (%)** in Settings splits net income into
+  "Savings" and "Left to spend" on the Home screen — purely
+  informational, it never changes what net income itself means. Leave
+  it at 0% (the default) to not show these rows at all.
 - A real background job (WorkManager) checks every ~15 minutes whether
   it's between **18:00–06:00** and you're **on wifi**; when both are
   true, it writes any completed days into that month's backup CSV, and
@@ -54,6 +58,9 @@ itself. There is no `INTERNET` permission in the manifest at all.
   (long-press the home screen → Widgets → PunchCard) to Start/End your
   day and see this month's net income without opening the app. Stays in
   sync with whatever you do inside the app too, not just its own button.
+- The system/gesture **back button** returns to the Home screen from
+  Manage entries or Settings; pressed again on Home, it exits the app —
+  standard Android behavior for a root screen.
 
 ## 1. Open the project
 
@@ -150,8 +157,9 @@ What's covered, one file per area:
   the top 50%), National Insurance + health tax (threshold and
   ceiling), the credit-points floor that keeps tax from going negative,
   the settings-fallback-to-earliest path for dates that predate every
-  known pay-settings row, and full month summaries (including a
-  mid-month rate change and days with no hours yet).
+  known pay-settings row, full month summaries (including a mid-month
+  rate change and days with no hours yet), and the savings target
+  (percentage of net, and that it never changes net itself).
 - `backup/CsvFormatTest.kt` — CSV escaping/parsing (commas, quotes,
   newlines), and the upsert-by-key merge that backup writes rely on,
   including the older-schema-header regression that was a real bug once

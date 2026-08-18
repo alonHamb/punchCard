@@ -170,6 +170,9 @@ object PayCalculator {
         val pension: Double = 0.0,
         val pensionPct: Double = 0.0,
         val net: Double = 0.0,
+        val savings: Double = 0.0,
+        val savingsPct: Double = 0.0,
+        val leftToSpend: Double = 0.0,
         val creditPoints: Double = 0.0,
         val hourlyRate: Double = 0.0,
         val overtimeEnabled: Boolean = false,
@@ -220,6 +223,12 @@ object PayCalculator {
         val niHealth = niHealthTax(grossTotal)
         val pension = grossTotal * (settingsForTax.pensionPct / 100.0)
         val net = grossTotal - incomeTax - niHealth - pension
+        // Savings is a set-aside-from-net *target*, not a payroll deduction —
+        // it never changes what "net income" means anywhere else in the app
+        // (Home screen, widget). "Left to spend" is the only new figure that
+        // actually subtracts it.
+        val savings = net * (settingsForTax.savingsPct / 100.0)
+        val leftToSpend = net - savings
 
         return MonthSummary(
             month = monthStr,
@@ -235,6 +244,9 @@ object PayCalculator {
             pension = round2(pension),
             pensionPct = settingsForTax.pensionPct,
             net = round2(net),
+            savings = round2(savings),
+            savingsPct = settingsForTax.savingsPct,
+            leftToSpend = round2(leftToSpend),
             creditPoints = settingsForTax.creditPoints,
             hourlyRate = settingsForTax.hourlyRate,
             overtimeEnabled = settingsForTax.overtimeEnabled,

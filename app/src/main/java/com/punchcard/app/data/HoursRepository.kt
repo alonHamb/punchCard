@@ -32,9 +32,12 @@ class HoursRepository(
         creditPoints: Double,
         pensionPct: Double,
         overtimeEnabled: Boolean,
+        savingsPct: Double,
         effectiveDate: String,
     ) {
-        payDao.insert(PaySettings(effectiveDate, hourlyRate, creditPoints, pensionPct, overtimeEnabled))
+        payDao.insert(
+            PaySettings(effectiveDate, hourlyRate, creditPoints, pensionPct, overtimeEnabled, savingsPct),
+        )
     }
 
     suspend fun hasStartedToday(date: String): Boolean = logDao.getByDate(date)?.startTime != null

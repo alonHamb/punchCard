@@ -55,6 +55,7 @@ fun SettingsScreen(viewModel: MainViewModel, onClose: () -> Unit) {
     var hourlyRate by remember { mutableStateOf("") }
     var creditPoints by remember { mutableStateOf("") }
     var pensionPct by remember { mutableStateOf("6") }
+    var savingsPct by remember { mutableStateOf("0") }
     var overtimeEnabled by remember { mutableStateOf(true) }
     var prefilled by remember { mutableStateOf(false) }
     var saveMessage by remember { mutableStateOf<String?>(null) }
@@ -66,6 +67,7 @@ fun SettingsScreen(viewModel: MainViewModel, onClose: () -> Unit) {
             hourlyRate = paySettings!!.hourlyRate.toString()
             creditPoints = paySettings!!.creditPoints.toString()
             pensionPct = paySettings!!.pensionPct.toString()
+            savingsPct = paySettings!!.savingsPct.toString()
             overtimeEnabled = paySettings!!.overtimeEnabled
             prefilled = true
         }
@@ -112,6 +114,14 @@ fun SettingsScreen(viewModel: MainViewModel, onClose: () -> Unit) {
             LabeledField("Tax credit points", creditPoints, { creditPoints = it }, KeyboardType.Decimal)
             Spacer(Modifier.height(12.dp))
             LabeledField("Pension deduction (%)", pensionPct, { pensionPct = it }, KeyboardType.Decimal)
+            Spacer(Modifier.height(12.dp))
+            LabeledField("Savings target (% of net income)", savingsPct, { savingsPct = it }, KeyboardType.Decimal)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Doesn't change net income — just splits it into \"Savings\" and \"Left to spend\" on the Home screen, as a target for what to set aside. Leave at 0 to turn this off.",
+                color = Color(0xFF94A3B8),
+                fontSize = 11.sp,
+            )
             Spacer(Modifier.height(16.dp))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -138,12 +148,16 @@ fun SettingsScreen(viewModel: MainViewModel, onClose: () -> Unit) {
                     val rate = hourlyRate.toDoubleOrNull()
                     val points = creditPoints.toDoubleOrNull()
                     val pension = pensionPct.toDoubleOrNull()
+                    val savings = savingsPct.toDoubleOrNull()
                     saveMessage = when {
                         rate == null || !rate.isFinite() || rate <= 0 -> "Enter a valid hourly rate."
                         points == null || !points.isFinite() || points < 0 -> "Enter valid credit points."
-                        pension == null || !pension.isFinite() || pension < 0 -> "Enter a valid pension %."
+                        pension == null || !pension.isFinite() || pension < 0 || pension >= 100 ->
+                            "Enter a valid pension % (0–99)."
+                        savings == null || !savings.isFinite() || savings < 0 || savings >= 100 ->
+                            "Enter a valid savings % (0–99)."
                         else -> {
-                            viewModel.savePaySettings(rate, points, pension, overtimeEnabled)
+                            viewModel.savePaySettings(rate, points, pension, overtimeEnabled, savings)
                             "Saved — applies from today onward."
                         }
                     }

@@ -17,4 +17,5 @@ data class PaySettings(
     val creditPoints: Double,              // Israeli tax credit points (e.g. 2.25)
     val pensionPct: Double,                // pension deduction, e.g. 6.0 for 6%
     val overtimeEnabled: Boolean = true,   // 125%/150% pay after 8h/day (see PayCalculator)
+    val savingsPct: Double = 0.0,          // set-aside-from-net-income target, e.g. 10.0 for 10%
 )

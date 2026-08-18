@@ -175,9 +175,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun savePaySettings(hourlyRate: Double, creditPoints: Double, pensionPct: Double, overtimeEnabled: Boolean) {
+    fun savePaySettings(
+        hourlyRate: Double,
+        creditPoints: Double,
+        pensionPct: Double,
+        overtimeEnabled: Boolean,
+        savingsPct: Double,
+    ) {
         viewModelScope.launch {
-            repo.savePaySettings(hourlyRate, creditPoints, pensionPct, overtimeEnabled, todayLocal())
+            repo.savePaySettings(hourlyRate, creditPoints, pensionPct, overtimeEnabled, savingsPct, todayLocal())
             loadMonth(_viewMonth.value)
             refreshWidget()
         }

@@ -33,9 +33,13 @@ and evolved, over several iterations, into this native rewrite. See
   in case you're in an overtime-exempt role. Included in both the daily
   Money figure and the month's Gross pay.
 - **Effective-dated pay settings.** Changing your hourly rate, credit
-  points, or pension % only ever affects today onward — past months keep
-  using whatever was in effect at the time, so they never silently
-  change.
+  points, pension %, or savings % only ever affects today onward — past
+  months keep using whatever was in effect at the time, so they never
+  silently change.
+- **Savings target.** Set a savings % in Settings and the Home screen
+  splits net income into "Savings" and "Left to spend" — purely
+  informational, it never changes what net income itself means. Leave
+  it at 0% to not use this at all.
 - **Manage entries screen.** Browse any month, edit or delete any day's
   start/end time, or add a day you forgot to log entirely — for any
   date, past or present.
@@ -65,6 +69,10 @@ and evolved, over several iterations, into this native rewrite. See
   (after tax, National Insurance, and pension — the same figure the Home
   screen's "Net income" row shows) without opening the app. Stays in
   sync with anything you do inside the app, not just its own button.
+- **Predictable back button.** The system/gesture back button returns
+  you to the Home screen from Manage entries or Settings; pressed again
+  on the Home screen itself, it exits the app like any normal Android
+  app's root screen.
 
 ## Screens
 

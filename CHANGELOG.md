@@ -1,6 +1,30 @@
 # Changelog
 
-## v14 — Button label: "Start/End Day" → "Start/End Shift" (current)
+## v15 — Savings target + predictable back button (current)
+- New **savings target (%)**, set in Settings alongside hourly
+  rate/credit points/pension %, same effective-dated behavior (changes
+  only apply from today onward). It's a **set-aside-from-net target,
+  not a payroll deduction**: the Home screen shows "Savings" and "Left
+  to spend" as two new rows under "Net income" (only when the % is
+  above 0), but net income itself never changes — same reasoning CSV
+  restore already uses for not touching pay settings. Backed by a new
+  Room schema version (v2 → v3, `PaySettings.savingsPct`, defaults to
+  0.0 so nothing changes for anyone until they set one).
+- Both **pension %** and the new **savings %** are now validated with
+  an upper bound (must be under 100%) in Settings, in addition to the
+  existing non-negative/finite checks.
+- **Predictable back button**: the system/gesture back button now
+  returns to the Home screen from Manage entries or Settings (via a
+  `BackHandler` in `MainActivity.kt`'s `AppRoot`, reusing the same
+  `onClose` logic the in-app back arrow already had) instead of
+  exiting the app from wherever you happened to be. Pressed again on
+  Home itself, it still exits — no handler is registered there, so it
+  falls through to the normal platform behavior for a root activity.
+- Added `PayCalculatorTest` coverage: savings as a percentage of net,
+  and — the important regression — that changing `savingsPct` never
+  changes what `net` itself is. Full suite: 100/100 tests passing.
+
+## v14 — Button label: "Start/End Day" → "Start/End Shift"
 - Renamed the Start/End button's labels in both places it appears (the
   Home screen's big button and the home-screen widget) from "Start
   Day"/"End Day" to "Start Shift"/"End Shift". No behavior change.

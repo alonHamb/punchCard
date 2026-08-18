@@ -49,11 +49,14 @@ data class PaySettings(
     val creditPoints: Double,
     val pensionPct: Double,
     val overtimeEnabled: Boolean = true,
+    val savingsPct: Double = 0.0,
 )
 ```
 `overtimeEnabled` was added in schema v2 (`AppDatabase.MIGRATION_1_2`,
 a plain `ALTER TABLE ... ADD COLUMN ... DEFAULT 1`) — existing rows
-default to enabled.
+default to enabled. `savingsPct` was added in schema v3
+(`MIGRATION_2_3`, same pattern, `DEFAULT 0.0`) — existing rows default
+to no savings target, so nothing changes until one is set.
 This is **append-only** — saving new settings inserts a new row keyed by
 today's date rather than overwriting the old one. Every calculation
 looks up "whichever settings row was in effect on the date being
@@ -107,6 +110,23 @@ pre-holiday days, so — like the tax brackets — it's an estimate, not a
 legal payroll calculation. `PaySettings.overtimeEnabled` is a per-user
 toggle (default on) for the rare case of an overtime-exempt role.
 
+### Savings
+
+`MonthSummary.savings` and `.leftToSpend` are a deliberately different
+kind of figure from everything above them: `savings = net *
+(savingsPct / 100)` and `leftToSpend = net - savings`, computed at the
+very end of `computeMonthSummary` — after `net` is already final. This
+is a **set-aside target, not a payroll deduction**: unlike pension
+(which reduces `net` itself), changing `savingsPct` never changes what
+`net` means anywhere else in the app (Home screen's "Net income" row,
+the home-screen widget). It only ever adds two *additional* figures on
+top. `PayCalculatorTest` has an explicit regression test asserting this
+(computing the same month with `savingsPct` at 10% and at 0% and
+checking `net` is identical). The Home screen only shows the
+Savings/Left-to-spend rows when `savingsPct > 0`, so someone who's never
+touched the setting (default `0.0`, per `MIGRATION_2_3`) sees no change
+at all.
+
 ## UI / state
 
 `ui/MainViewModel.kt` exposes everything the three screens need as
@@ -132,7 +152,13 @@ every tap, so it's race-safe against stale UI state).
 Three screens, switched via a simple `Screen` enum in `MainActivity.kt`
 (`AppRoot` composable) — no navigation library, since there are only
 three destinations and none of them need deep linking or a back stack
-beyond a single "close" callback.
+beyond a single "close" callback. `AppRoot` registers a
+`BackHandler(enabled = screen != Screen.Main)` that reuses that same
+`onClose` logic (jump back to `Screen.Main`) for the system/gesture
+back button too — enabled only away from Home, so on Home itself
+there's no handler at all and back falls through to the platform
+default (finish the activity), which is exactly "exit the app" since
+this is the app's only/root activity.
 
 ## Backup system
 
@@ -357,9 +383,11 @@ and parsing rule in the app, one file per area:
   boundaries across all seven brackets, NI + health tax's threshold and
   ceiling, the credit-points floor that keeps tax from going negative,
   `settingsForDate`'s fallback to the earliest known settings row for a
-  date that predates all of them, and full month summaries (a mid-month
+  date that predates all of them, full month summaries (a mid-month
   rate change, an in-progress day with no hours yet, the empty-entries
-  case).
+  case), and savings (correctly a percentage of net, and — the
+  important regression to guard — that changing `savingsPct` never
+  changes `net` itself).
 - `backup/CsvFormatTest.kt` + `backup/BackupWorkerLogicTest.kt` — the
   CSV escape/parse/merge logic (see "Backup system" above) and the
   18:00–06:00 window boundary, both pulled into pure functions

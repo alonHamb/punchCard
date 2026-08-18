@@ -64,6 +64,50 @@ class PayCalculatorTest {
     }
 
     @Test
+    fun `savings is a percentage of net income and never changes net`() = runTest {
+        val settings = PaySettings(
+            effectiveDate = "2026-08-01",
+            hourlyRate = 60.0,
+            creditPoints = 2.25,
+            pensionPct = 6.0,
+            savingsPct = 10.0,
+        )
+        val entries = listOf(LogEntry(date = "2026-08-03", startTime = "09:00", endTime = "17:00", hours = 8.0))
+        val summary = PayCalculator.computeMonthSummary(
+            monthStr = "2026-08",
+            entries = entries,
+            getForDateOrBefore = { settings },
+            getEarliest = { settings },
+        )
+        assertEquals(10.0, summary.savingsPct, 0.001)
+        assertEquals(summary.net * 0.10, summary.savings, 0.01)
+        assertEquals(summary.net - summary.savings, summary.leftToSpend, 0.001)
+        // Changing savingsPct must never change what net income itself means.
+        val noSavingsSettings = settings.copy(savingsPct = 0.0)
+        val summaryNoSavings = PayCalculator.computeMonthSummary(
+            monthStr = "2026-08",
+            entries = entries,
+            getForDateOrBefore = { noSavingsSettings },
+            getEarliest = { noSavingsSettings },
+        )
+        assertEquals(summaryNoSavings.net, summary.net, 0.001)
+    }
+
+    @Test
+    fun `zero savings pct leaves leftToSpend equal to net`() = runTest {
+        val settings = PaySettings(effectiveDate = "2026-08-01", hourlyRate = 60.0, creditPoints = 2.25, pensionPct = 6.0)
+        val entries = listOf(LogEntry(date = "2026-08-03", startTime = "09:00", endTime = "17:00", hours = 8.0))
+        val summary = PayCalculator.computeMonthSummary(
+            monthStr = "2026-08",
+            entries = entries,
+            getForDateOrBefore = { settings },
+            getEarliest = { settings },
+        )
+        assertEquals(0.0, summary.savings, 0.001)
+        assertEquals(summary.net, summary.leftToSpend, 0.001)
+    }
+
+    @Test
     fun `no entries yields hasData false`() = runTest {
         val summary = PayCalculator.computeMonthSummary(
             monthStr = "2026-09",

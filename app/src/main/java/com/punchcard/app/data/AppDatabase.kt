@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [LogEntry::class, PaySettings::class], version = 2, exportSchema = false)
+@Database(entities = [LogEntry::class, PaySettings::class], version = 3, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun logEntryDao(): LogEntryDao
     abstract fun paySettingsDao(): PaySettingsDao
@@ -25,13 +25,24 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // v2 -> v3: added PaySettings.savingsPct — a set-aside-from-net
+        // savings target, purely informational (never changes what "net
+        // income" means, see PayCalculator's Savings section). Existing
+        // rows default to 0 (no savings target set), so nothing changes
+        // for anyone until they set one in Settings.
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE pay_settings ADD COLUMN savingsPct REAL NOT NULL DEFAULT 0.0")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "hours_log.db"
-                ).addMigrations(MIGRATION_1_2).build().also { INSTANCE = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { INSTANCE = it }
             }
         }
     }

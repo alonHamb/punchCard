@@ -2,6 +2,7 @@ package com.punchcard.app.ui
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
@@ -35,6 +36,14 @@ private enum class Screen { Main, Settings, Manage }
 @Composable
 private fun AppRoot(viewModel: MainViewModel) {
     var screen by remember { mutableStateOf(Screen.Main) }
+
+    // System/gesture back from Settings or Manage returns to Home instead
+    // of exiting the app. No handler is registered while on Home itself,
+    // so back there falls through to the platform default (exits, since
+    // this is the app's single/root activity with no back stack).
+    BackHandler(enabled = screen != Screen.Main) {
+        screen = Screen.Main
+    }
 
     when (screen) {
         Screen.Main -> MainScreen(
