@@ -1,6 +1,11 @@
 # Changelog
 
-## v13 — Home-screen widget (current)
+## v14 — Button label: "Start/End Day" → "Start/End Shift" (current)
+- Renamed the Start/End button's labels in both places it appears (the
+  Home screen's big button and the home-screen widget) from "Start
+  Day"/"End Day" to "Start Shift"/"End Shift". No behavior change.
+
+## v13 — Home-screen widget
 - New **home-screen widget** (`widget/`, built with Jetpack Glance —
   `androidx.glance:glance-appwidget:1.1.1`): a Start/End button (same
   Start/End logic and colors as the in-app button, mirroring

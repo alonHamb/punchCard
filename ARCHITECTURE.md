@@ -125,7 +125,7 @@ live everywhere else without manual refresh calls):
   via `_manageMonth.flatMapLatest { repo.observeForMonth(it) }`.
 
 Start/End mode is **purely data-driven**, not clock-driven: the button
-shows "End Day" if and only if today's `LogEntry.startTime` is set
+shows "End Shift" if and only if today's `LogEntry.startTime` is set
 (`HoursRepository.hasStartedToday`/`logNext` re-read the DB fresh on
 every tap, so it's race-safe against stale UI state).
 
@@ -281,7 +281,7 @@ either Android/Glance plumbing or a direct call into the same
   `PayCalculator.MonthSummary` for the net-income figure, then renders
   both through `provideContent { ... }` — a dark card (matching
   `brand_bg`) with a "This month" label + net income, and a colored box
-  below (green/orange, matching `BigLogButton`'s Start/Day colors) that
+  below (green/orange, matching `BigLogButton`'s Start/End colors) that
   triggers `LogNowAction` on tap. `cornerRadius` (rounded corners) only
   takes effect on Android 12+ — a Glance/platform limitation, not a bug;
   the widget still renders correctly (just square-cornered) below that.

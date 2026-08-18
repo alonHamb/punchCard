@@ -196,7 +196,7 @@ private fun BigLogButton(isStartMode: Boolean, onClick: () -> Unit) {
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                if (isStartMode) "Start Day" else "End Day",
+                if (isStartMode) "Start Shift" else "End Shift",
                 color = Color.White,
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Black,

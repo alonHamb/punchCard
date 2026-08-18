@@ -15,8 +15,8 @@ and evolved, over several iterations, into this native rewrite. See
 
 ## Features
 
-- **One-tap Start/End logging.** A single button shows "Start Day" until
-  you tap it, then switches to "End Day" — End only ever becomes
+- **One-tap Start/End logging.** A single button shows "Start Shift" until
+  you tap it, then switches to "End Shift" — End only ever becomes
   reachable after Start has actually been logged for that day, and every
   new calendar day resets back to Start automatically, even if the app
   was left open across midnight.

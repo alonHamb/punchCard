@@ -11,10 +11,10 @@ itself. There is no `INTERNET` permission in the manifest at all.
 
 ## What it does
 
-- One big button that swaps automatically: it shows **Start Day**
-  until you tap it, then switches to **End Day** — End is only ever
+- One big button that swaps automatically: it shows **Start Shift**
+  until you tap it, then switches to **End Shift** — End is only ever
   reachable after Start has been logged for that day, there's no clock
-  cutoff. Every new calendar day resets back to Start Day automatically
+  cutoff. Every new calendar day resets back to Start Shift automatically
   (even if the app's been left open overnight). Tapping records the
   current date/time from your phone — nothing to type. Tapping again
   after both are set just corrects that day's time (handy for a mis-tap).

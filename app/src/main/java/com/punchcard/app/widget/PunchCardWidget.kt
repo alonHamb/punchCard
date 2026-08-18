@@ -104,7 +104,7 @@ private fun WidgetContent(isStartMode: Boolean, netText: String) {
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = if (isStartMode) "Start Day" else "End Day",
+                text = if (isStartMode) "Start Shift" else "End Shift",
                 style = TextStyle(
                     color = ColorProvider(Color.White),
                     fontSize = 15.sp,
