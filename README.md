@@ -65,10 +65,13 @@ and evolved, over several iterations, into this native rewrite. See
   day it finds that isn't already logged locally, same never-overwrite
   rule as restoring from backup. Handy for bringing in a spreadsheet you
   were already keeping by hand before switching to this app.
-- **Home-screen widget.** Log Start/End and see this month's net income
-  (after tax, National Insurance, and pension — the same figure the Home
-  screen's "Net income" row shows) without opening the app. Stays in
-  sync with anything you do inside the app, not just its own button.
+- **Home-screen widget.** Practically the whole Home screen, resizable
+  on your home screen: Start/End your day, today's Start/End/Hours/Money,
+  the full month breakdown (gross, tax, NI, pension, net, savings) with
+  its own prev/next month navigation, and a "Back up now" button —
+  everything except the scrollable Recent Days list, which Android
+  widgets handle worst. Stays in sync with anything you do inside the
+  app, not just its own buttons.
 - **Predictable back button.** The system/gesture back button returns
   you to the Home screen from Manage entries or Settings; pressed again
   on the Home screen itself, it exits the app like any normal Android

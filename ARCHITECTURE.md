@@ -293,51 +293,84 @@ throughout `backup/`:
 
 ## Home-screen widget
 
-`widget/` (three small files, no separate `logic` split needed since
-there's no calculation of its own to isolate — everything here is
-either Android/Glance plumbing or a direct call into the same
-`HoursRepository`/`PayCalculator` the rest of the app already uses):
+`widget/` — practically the whole Home screen (`MainScreen.kt`)
+reimplemented for Glance/RemoteViews, minus the scrollable Recent Days
+list (Android widgets handle a nested scroll region worst of
+everything Compose can do, so it was deliberately left out). No separate `logic`
+split, since there's no calculation of its own to isolate — everything
+here is either Android/Glance plumbing or a direct call into the same
+`HoursRepository`/`PayCalculator`/`BackupScheduler`/`BackupPreferences`
+the rest of the app already uses:
 
 - **`PunchCardWidget.kt`** — the `GlanceAppWidget`. `provideGlance`
-  builds a fresh `HoursRepository` from `AppDatabase.getInstance(context)`
-  (the same "construct it from Context each time, no DI framework" habit
-  `MainViewModel` and `BackupWorker` already have), reads today's
-  `LogEntry` to decide Start/End mode (`startTime == null` → Start,
-  same rule `MainScreen`'s button uses) and this month's
-  `PayCalculator.MonthSummary` for the net-income figure, then renders
-  both through `provideContent { ... }` — a dark card (matching
-  `brand_bg`) with a "This month" label + net income, and a colored box
-  below (green/orange, matching `BigLogButton`'s Start/End colors) that
-  triggers `LogNowAction` on tap. `cornerRadius` (rounded corners) only
-  takes effect on Android 12+ — a Glance/platform limitation, not a bug;
-  the widget still renders correctly (just square-cornered) below that.
-- **`LogNowAction.kt`** — the tap handler (`ActionCallback`). Mirrors
-  `MainViewModel.logNow()` exactly: builds a repository the same way,
-  calls `HoursRepository.logNext(date, time)` (which re-reads the DB
-  fresh to decide Start vs. End, so it's never fooled by a stale
-  widget), then calls `PunchCardWidget().update(context, glanceId)` to
-  redraw immediately with the new mode/figure.
+  resolves *everything* up front — today's `LogEntry` (Start/End mode),
+  the persisted "which month is being viewed" state (see
+  `ShiftMonthAction.kt` below), that month's `PayCalculator.MonthSummary`,
+  the pending-backup count (`HoursRepository.getPendingBackupEntries().size`),
+  and the backup folder name (`BackupPreferences`) — then passes all of
+  it as plain values into `WidgetContent`, a single composable that
+  mirrors `MainScreen.kt`'s section-by-section structure (header, the
+  Start/End button, a compact "Today" row, the month breakdown with
+  its `‹`/`›` nav, then the backup row pinned to the bottom via
+  `GlanceModifier.defaultWeight()` on a spacer above it). This
+  "resolve everything before composing" approach is deliberate: each
+  `update()`/`updateAll()` call fully re-runs `provideGlance` from
+  scratch rather than incrementally recomposing an existing tree, so
+  there's no benefit to reactive reads (`currentState()`) inside the
+  composable itself — plain suspend calls beforehand are simpler and
+  exactly as fresh. `cornerRadius` (rounded corners) only takes effect
+  on Android 12+ — a Glance/platform limitation, not a bug; older
+  phones just see square corners.
+- **`LogNowAction.kt`** — the Start/End tap handler (`ActionCallback`).
+  Mirrors `MainViewModel.logNow()` exactly: builds a repository the
+  same way, calls `HoursRepository.logNext(date, time)` (which re-reads
+  the DB fresh to decide Start vs. End, so it's never fooled by a stale
+  widget), then calls `PunchCardWidget().update(context, glanceId)`.
+- **`ShiftMonthAction.kt`** — the `‹`/`›` tap handler, and where the
+  "viewed month" persistence lives. `GlanceAppWidget.stateDefinition`
+  defaults to `PreferencesGlanceStateDefinition` (a small per-widget-
+  instance key/value store backed by DataStore, keyed by `GlanceId`) —
+  no extra setup needed to use it. `VIEWED_MONTH_KEY` stores a
+  `"YYYY-MM"` string; absent means "current month". The action reads
+  the current value via `getAppWidgetState`, computes the shifted
+  month, refuses to go past the current month (same "no future months"
+  guard `MainViewModel.shiftMonth` has), writes it back via
+  `updateAppWidgetState`, then re-renders. Each widget instance
+  remembers its own viewed month independently, same as the in-app
+  Home/Manage screens each have their own separately-tracked month.
+- **`BackupNowAction.kt`** — calls `BackupScheduler.triggerNow(context)`,
+  same as the Home screen's button. Doesn't re-render the widget itself
+  since the actual backup runs asynchronously via WorkManager — the
+  pending-day count only changes once that finishes and something else
+  (a `MainViewModel` mutation, or the periodic refresh) triggers a
+  redraw, same as the in-app button doesn't refresh anything
+  synchronously either.
 - **`PunchCardWidgetReceiver.kt`** — the trivial `GlanceAppWidgetReceiver`
   the manifest points at; just supplies the `GlanceAppWidget` instance.
-- **`res/xml/punchcard_widget_info.xml`** — `updatePeriodMillis` is set
-  to 30 minutes, the OS-enforced minimum for this mechanism — it's only
-  a safety-net refresh for the rare case of the calendar day rolling
-  over while the widget sits untouched. Real freshness comes from
-  explicit `update()`/`updateAll()` calls: `LogNowAction` updates right
-  after its own tap, and `MainViewModel` calls
-  `PunchCardWidget().updateAll(context)` at the end of every function
-  that mutates logged days or pay settings (`logNow`, `updateEntryTimes`,
-  `deleteEntry`, `savePaySettings`, `restoreFromFolder`,
-  `importFromSpreadsheet`) — so editing a day in the Manage screen, or
-  restoring a backup, reflects on an already-placed widget immediately
-  rather than waiting up to 30 minutes. `updateAll` is a no-op if the
-  widget hasn't been placed on any home screen, so these calls are safe
-  regardless.
+- **`res/xml/punchcard_widget_info.xml`** — sized generously
+  (`minWidth="250dp" minHeight="380dp"`, `resizeMode="horizontal|vertical"`)
+  since this now shows a lot more than a compact glance figure; a user
+  who resizes it smaller than its content needs will see that content
+  clipped rather than scrolled, the same practical limitation any
+  non-list Android widget has. `updatePeriodMillis` is set to 30
+  minutes, the OS-enforced minimum for this mechanism — it's only a
+  safety-net refresh for the rare case of the calendar day rolling over
+  while the widget sits untouched. Real freshness comes from explicit
+  `update()`/`updateAll()` calls: each action updates right after its
+  own tap, and `MainViewModel` calls `PunchCardWidget().updateAll(context)`
+  at the end of every function that mutates logged days or pay settings
+  (`logNow`, `updateEntryTimes`, `deleteEntry`, `savePaySettings`,
+  `restoreFromFolder`, `importFromSpreadsheet`) — so editing a day in
+  the Manage screen, or restoring a backup, reflects on an
+  already-placed widget immediately rather than waiting up to 30
+  minutes. `updateAll` is a no-op if the widget hasn't been placed on
+  any home screen, so these calls are safe regardless.
 - Not covered by the unit test suite — Glance composables render to
   actual `RemoteViews`/`AppWidgetManager` calls, which (like the rest of
   the Compose UI) need a device/emulator to exercise for real; the
   calculation and Start/End-mode logic it calls into (`PayCalculator`,
-  `HoursRepository.logNext`) is already covered independently.
+  `HoursRepository.logNext`/`getMonthSummary`) is already covered
+  independently.
 
 ## Manage screen
 

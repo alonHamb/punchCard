@@ -1,6 +1,32 @@
 # Changelog
 
-## v15 — Savings target + predictable back button (current)
+## v16 — Widget: practically the whole Home screen (current)
+- Expanded the home-screen widget from a compact Start/End + net-income
+  card to practically the entire Home screen: today's
+  Start/End/Hours/Money, the full month breakdown (gross, overtime
+  split, tax, NI, pension, net, savings) with its own `‹`/`›` month
+  navigation, and a "Back up now" button with the pending-day count —
+  everything `MainScreen.kt` has except the scrollable Recent Days
+  list, which Android widgets handle worst of anything Compose can do.
+- New `ShiftMonthAction.kt` persists which month each widget instance
+  is viewing via Glance's built-in `PreferencesGlanceStateDefinition`
+  (no extra dependency — it's already the default `stateDefinition` on
+  every `GlanceAppWidget`), independently per placed widget, same "no
+  future months" guard `MainViewModel.shiftMonth` already has.
+- New `BackupNowAction.kt` triggers a backup from the widget the same
+  way the Home screen's button does.
+- Widget's minimum size grew accordingly (180×110dp → 250×380dp) to
+  fit the extra content; it clips rather than scrolls if resized
+  smaller than what it's showing, the standard trade-off for a non-list
+  Android widget.
+- Verified the additional Glance APIs needed (state persistence,
+  `RowScope`/`ColumnScope` weighted layout for spread-apart rows,
+  `actionParametersOf`) against the real androidx source, same
+  standard as the rest of this widget's implementation. Full suite:
+  100/100 tests passing — the widget UI itself still isn't unit
+  testable, same limitation as the rest of the Compose UI.
+
+## v15 — Savings target + predictable back button
 - New **savings target (%)**, set in Settings alongside hourly
   rate/credit points/pension %, same effective-dated behavior (changes
   only apply from today onward). It's a **set-aside-from-net target,

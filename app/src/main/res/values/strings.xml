@@ -1,4 +1,4 @@
 <resources>
     <string name="app_name">PunchCard</string>
-    <string name="app_widget_description">Start/end your day and see this month\'s net income</string>
+    <string name="app_widget_description">Start/end your day and see this month\'s full pay breakdown, without opening the app</string>
 </resources>

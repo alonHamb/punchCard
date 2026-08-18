@@ -55,9 +55,13 @@ itself. There is no `INTERNET` permission in the manifest at all.
   you've already got. Useful for bringing in a spreadsheet you were
   keeping by hand before switching to this app.
 - A **home-screen widget**: add it like any other Android widget
-  (long-press the home screen → Widgets → PunchCard) to Start/End your
-  day and see this month's net income without opening the app. Stays in
-  sync with whatever you do inside the app too, not just its own button.
+  (long-press the home screen → Widgets → PunchCard) for practically the
+  whole Home screen — Start/End your day, today's numbers, the full
+  month breakdown with its own prev/next navigation, and a "Back up
+  now" button — everything except the Recent Days list. Resizable; a
+  size smaller than its content needs will clip rather than scroll.
+  Stays in sync with whatever you do inside the app too, not just its
+  own buttons.
 - The system/gesture **back button** returns to the Home screen from
   Manage entries or Settings; pressed again on Home, it exits the app —
   standard Android behavior for a root screen.
