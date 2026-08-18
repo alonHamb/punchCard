@@ -1,6 +1,35 @@
 # Changelog
 
-## v18 — Widget: remove weighted spacer (current, unconfirmed)
+## v19 — Widget: fix the real root cause (current)
+- v18's guess was wrong. Got real `adb logcat` output from a connected
+  device and found the actual error:
+  ```
+  java.lang.IllegalArgumentException: Column container cannot have more than 10 elements
+  Truncated Column container from 14 to 10 elements
+  ```
+  Glance/RemoteViews silently caps every `Column`/`Row` at 10 direct
+  children — anything past the 10th is dropped with no error visible
+  anywhere in the UI, no crash, nothing. `WidgetContent`'s root `Column`
+  had exactly 14 direct children (header × 2, the Start/End button, 3
+  more single items, 2 rows, the month breakdown, and the backup row,
+  each previously separated by its own `Spacer`) — so everything from
+  item 11 onward (the tail of the month nav spacing, the entire
+  breakdown, and the backup row) never rendered, regardless of the
+  widget's actual size. This is what v17/v18 were symptom-chasing
+  without knowing it.
+- Fixed by grouping the root `Column`'s children into nested
+  sub-`Column`s (header block, today block, month block) so no
+  container — root or nested — comes close to the 10-child cap even in
+  the worst case (overtime split + savings both showing = 9 rows in
+  the deepest one). Replaced the standalone `Spacer` elements with
+  `padding(top = ...)` on the following element instead, which don't
+  count as separate children.
+- This is a real, confirmed Glance/RemoteViews platform limit worth
+  remembering for any future widget content: **a Column or Row can
+  have at most 10 direct children**, full stop, with no compile-time
+  or lint warning — nest into sub-containers well before getting close.
+
+## v18 — Widget: remove weighted spacer
 - After v17's fix, a widget resized much taller than its content still
   showed the header/button/Today numbers/month title correctly, but the
   entire breakdown *and* backup row were missing with a large empty

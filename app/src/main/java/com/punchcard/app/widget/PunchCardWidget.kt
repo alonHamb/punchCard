@@ -120,6 +120,12 @@ private fun WidgetContent(
 ) {
     val isStartMode = todayEntry?.startTime == null
 
+    // Glance/RemoteViews caps every Column (and Row) at 10 direct
+    // children — silently truncating the rest, with no error visible
+    // anywhere in the UI (see CHANGELOG v19). This widget has far more
+    // than 10 pieces of content, so it's deliberately grouped into
+    // nested sub-Columns below, each comfortably under that limit,
+    // instead of one flat list of children on the root Column.
     Column(
         modifier = GlanceModifier
             .fillMaxSize()
@@ -127,14 +133,16 @@ private fun WidgetContent(
             .cornerRadius(20.dp)
             .padding(12.dp),
     ) {
-        Text("PunchCard", style = TextStyle(color = ColorProvider(Color.White), fontSize = 15.sp, fontWeight = FontWeight.Bold))
-        Text(headerDate, style = TextStyle(color = ColorProvider(TextMuted), fontSize = 10.sp))
-        Spacer(GlanceModifier.height(6.dp))
+        Column {
+            Text("PunchCard", style = TextStyle(color = ColorProvider(Color.White), fontSize = 15.sp, fontWeight = FontWeight.Bold))
+            Text(headerDate, style = TextStyle(color = ColorProvider(TextMuted), fontSize = 10.sp))
+        }
 
         Box(
             modifier = GlanceModifier
                 .fillMaxWidth()
                 .height(42.dp)
+                .padding(top = 8.dp)
                 .background(if (isStartMode) BrandStart else BrandEnd)
                 .cornerRadius(12.dp)
                 .clickable(actionRunCallback<LogNowAction>()),
@@ -145,63 +153,69 @@ private fun WidgetContent(
                 style = TextStyle(color = ColorProvider(Color.White), fontSize = 14.sp, fontWeight = FontWeight.Bold),
             )
         }
-        Spacer(GlanceModifier.height(8.dp))
 
-        Text("TODAY", style = TextStyle(color = ColorProvider(TextFaint), fontSize = 9.sp, fontWeight = FontWeight.Bold))
-        Spacer(GlanceModifier.height(2.dp))
-        Row(modifier = GlanceModifier.fillMaxWidth()) {
-            TodayMini("Start", todayEntry?.startTime ?: "—")
-            TodayMini("End", todayEntry?.endTime ?: "—")
-            TodayMini("Hours", todayEntry?.hours?.let { fmtNum(it) + "h" } ?: "—")
-            TodayMini("Money", todayEntry?.money?.let { "₪" + fmtNum(it) } ?: "—")
+        Column(modifier = GlanceModifier.padding(top = 8.dp)) {
+            Text("TODAY", style = TextStyle(color = ColorProvider(TextFaint), fontSize = 9.sp, fontWeight = FontWeight.Bold))
+            Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 2.dp)) {
+                TodayMini("Start", todayEntry?.startTime ?: "—")
+                TodayMini("End", todayEntry?.endTime ?: "—")
+                TodayMini("Hours", todayEntry?.hours?.let { fmtNum(it) + "h" } ?: "—")
+                TodayMini("Money", todayEntry?.money?.let { "₪" + fmtNum(it) } ?: "—")
+            }
         }
-        Spacer(GlanceModifier.height(8.dp))
 
-        Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            NavBox("‹", shiftMonthParameters(-1))
-            Text(
-                monthTitle(viewedMonth),
-                modifier = GlanceModifier.defaultWeight(),
-                style = TextStyle(color = ColorProvider(Color.White), fontSize = 12.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center),
-            )
-            NavBox("›", shiftMonthParameters(1))
-        }
-        Spacer(GlanceModifier.height(4.dp))
-
-        when {
-            !summary.hasData -> Text("No hours logged this month yet.", style = TextStyle(color = ColorProvider(TextMuted), fontSize = 12.sp))
-            !summary.hasSettings -> Box(
-                modifier = GlanceModifier.clickable(actionStartActivity<MainActivity>()),
-            ) {
+        Column(modifier = GlanceModifier.padding(top = 8.dp)) {
+            Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                NavBox("‹", shiftMonthParameters(-1))
                 Text(
-                    "${fmtNum(summary.totalHours)}h logged — open PunchCard to set an hourly rate.",
+                    monthTitle(viewedMonth),
+                    modifier = GlanceModifier.defaultWeight(),
+                    style = TextStyle(color = ColorProvider(Color.White), fontSize = 12.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center),
+                )
+                NavBox("›", shiftMonthParameters(1))
+            }
+
+            val breakdownModifier = GlanceModifier.padding(top = 4.dp)
+            when {
+                !summary.hasData -> Text(
+                    "No hours logged this month yet.",
+                    modifier = breakdownModifier,
                     style = TextStyle(color = ColorProvider(TextMuted), fontSize = 12.sp),
                 )
-            }
-            else -> Column {
-                val regularHours = summary.totalHours - summary.overtimeHours
-                if (summary.overtimeHours > 0) {
-                    WidgetRow("Regular (${fmtNum(regularHours)}h)", "₪" + fmtNum(summary.regularPay), Color.White)
-                    WidgetRow("Overtime (${fmtNum(summary.overtimeHours)}h)", "₪" + fmtNum(summary.overtimePay), Color.White)
-                    WidgetRow("Gross pay", "₪" + fmtNum(summary.gross), Color.White, emphasize = true)
-                } else {
-                    WidgetRow("Gross (${fmtNum(summary.totalHours)}h)", "₪" + fmtNum(summary.gross), Color.White)
+                !summary.hasSettings -> Box(
+                    modifier = breakdownModifier.clickable(actionStartActivity<MainActivity>()),
+                ) {
+                    Text(
+                        "${fmtNum(summary.totalHours)}h logged — open PunchCard to set an hourly rate.",
+                        style = TextStyle(color = ColorProvider(TextMuted), fontSize = 12.sp),
+                    )
                 }
-                WidgetRow("Income tax", "−₪" + fmtNum(summary.incomeTax), BrandDanger)
-                WidgetRow("NI + health", "−₪" + fmtNum(summary.niHealth), BrandDanger)
-                WidgetRow("Pension (${fmtNum(summary.pensionPct)}%)", "−₪" + fmtNum(summary.pension), BrandDanger)
-                WidgetRow("Net income", "₪" + fmtNum(summary.net), BrandStart, emphasize = true)
-                if (summary.savingsPct > 0) {
-                    WidgetRow("Savings (${fmtNum(summary.savingsPct)}%)", "₪" + fmtNum(summary.savings), Color.White)
-                    WidgetRow("Left to spend", "₪" + fmtNum(summary.leftToSpend), BrandStart, emphasize = true)
+                else -> Column(modifier = breakdownModifier) {
+                    val regularHours = summary.totalHours - summary.overtimeHours
+                    if (summary.overtimeHours > 0) {
+                        WidgetRow("Regular (${fmtNum(regularHours)}h)", "₪" + fmtNum(summary.regularPay), Color.White)
+                        WidgetRow("Overtime (${fmtNum(summary.overtimeHours)}h)", "₪" + fmtNum(summary.overtimePay), Color.White)
+                        WidgetRow("Gross pay", "₪" + fmtNum(summary.gross), Color.White, emphasize = true)
+                    } else {
+                        WidgetRow("Gross (${fmtNum(summary.totalHours)}h)", "₪" + fmtNum(summary.gross), Color.White)
+                    }
+                    WidgetRow("Income tax", "−₪" + fmtNum(summary.incomeTax), BrandDanger)
+                    WidgetRow("NI + health", "−₪" + fmtNum(summary.niHealth), BrandDanger)
+                    WidgetRow("Pension (${fmtNum(summary.pensionPct)}%)", "−₪" + fmtNum(summary.pension), BrandDanger)
+                    WidgetRow("Net income", "₪" + fmtNum(summary.net), BrandStart, emphasize = true)
+                    if (summary.savingsPct > 0) {
+                        WidgetRow("Savings (${fmtNum(summary.savingsPct)}%)", "₪" + fmtNum(summary.savings), Color.White)
+                        WidgetRow("Left to spend", "₪" + fmtNum(summary.leftToSpend), BrandStart, emphasize = true)
+                    }
                 }
             }
         }
 
-        Spacer(GlanceModifier.height(10.dp))
-
         val backupEnabled = pendingCount > 0 && folderName != null
-        Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = GlanceModifier.fillMaxWidth().padding(top = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(
                 if (pendingCount == 0) "No days waiting to back up" else "$pendingCount day${if (pendingCount != 1) "s" else ""} pending",
                 modifier = GlanceModifier.defaultWeight(),

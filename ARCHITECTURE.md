@@ -311,9 +311,10 @@ the rest of the app already uses:
   it as plain values into `WidgetContent`, a single composable that
   mirrors `MainScreen.kt`'s section-by-section structure (header, the
   Start/End button, a compact "Today" row, the month breakdown with
-  its `‹`/`›` nav, then the backup row pinned to the bottom via
-  `GlanceModifier.defaultWeight()` on a spacer above it). This
-  "resolve everything before composing" approach is deliberate: each
+  its `‹`/`›` nav, then the backup row) — grouped into nested
+  sub-`Column`s (see the container-limit note below), not one flat
+  list of children. This "resolve everything before composing"
+  approach is deliberate: each
   `update()`/`updateAll()` call fully re-runs `provideGlance` from
   scratch rather than incrementally recomposing an existing tree, so
   there's no benefit to reactive reads (`currentState()`) inside the
@@ -321,6 +322,18 @@ the rest of the app already uses:
   exactly as fresh. `cornerRadius` (rounded corners) only takes effect
   on Android 12+ — a Glance/platform limitation, not a bug; older
   phones just see square corners.
+  **A `Column`/`Row` can have at most 10 direct children** — a real,
+  undocumented-in-the-type-system Glance/RemoteViews platform limit
+  (`androidx.glance.appwidget.LayoutSelectionKt.insertContainerView`
+  throws `IllegalArgumentException` past that, and *silently
+  truncates* the rest — no crash, no visible error anywhere in the UI,
+  just missing content). This was a real bug once (see CHANGELOG v19):
+  the root `Column` had grown to 14 children as sections got added, so
+  everything past the 10th silently vanished regardless of the
+  widget's size. `WidgetContent` is deliberately grouped into nested
+  sub-`Column`s (header/today/month blocks) to stay well under this on
+  every container, root and nested alike — keep that structure (or an
+  equivalent one) if adding more content here.
 - **`LogNowAction.kt`** — the Start/End tap handler (`ActionCallback`).
   Mirrors `MainViewModel.logNow()` exactly: builds a repository the
   same way, calls `HoursRepository.logNext(date, time)` (which re-reads
