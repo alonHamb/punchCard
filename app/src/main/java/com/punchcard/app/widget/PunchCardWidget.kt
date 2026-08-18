@@ -198,8 +198,7 @@ private fun WidgetContent(
             }
         }
 
-        Spacer(GlanceModifier.defaultWeight())
-        Spacer(GlanceModifier.height(6.dp))
+        Spacer(GlanceModifier.height(10.dp))
 
         val backupEnabled = pendingCount > 0 && folderName != null
         Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

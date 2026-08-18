@@ -1,6 +1,22 @@
 # Changelog
 
-## v17 — Widget: fix content getting silently clipped (current)
+## v18 — Widget: remove weighted spacer (current, unconfirmed)
+- After v17's fix, a widget resized much taller than its content still
+  showed the header/button/Today numbers/month title correctly, but the
+  entire breakdown *and* backup row were missing with a large empty
+  gap — not the clipping v17 fixed (there was clearly room). The one
+  genuinely unusual construct in that part of the layout was a
+  weight-based spacer (`GlanceModifier.defaultWeight()`) pushing the
+  backup row to the bottom of the widget — weighted `LinearLayout`
+  children inside RemoteViews are a known trouble spot on some launcher
+  hosts. Replaced it with a plain fixed-height spacer (content now just
+  flows top-down; extra space collects at the bottom instead of being
+  actively filled).
+- Marked unconfirmed: not reproducible locally (no device/emulator in
+  this environment), so this is the most plausible fix based on what's
+  unusual about that section of the layout, not a confirmed root cause.
+
+## v17 — Widget: fix content getting silently clipped
 - The month breakdown added in v16 could render below the widget's
   actual visible area and get silently clipped — RemoteViews-based
   widgets don't scroll or shrink content to fit, they just cut it off
