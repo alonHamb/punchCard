@@ -131,32 +131,32 @@ private fun WidgetContent(
             .fillMaxSize()
             .background(Color(0xFF0F172A))
             .cornerRadius(20.dp)
-            .padding(12.dp),
+            .padding(18.dp),
     ) {
         Column {
-            Text("PunchCard", style = TextStyle(color = ColorProvider(Color.White), fontSize = 15.sp, fontWeight = FontWeight.Bold))
-            Text(headerDate, style = TextStyle(color = ColorProvider(TextMuted), fontSize = 10.sp))
+            Text("PunchCard", style = TextStyle(color = ColorProvider(Color.White), fontSize = 30.sp, fontWeight = FontWeight.Bold))
+            Text(headerDate, style = TextStyle(color = ColorProvider(TextMuted), fontSize = 20.sp))
         }
 
         Box(
             modifier = GlanceModifier
                 .fillMaxWidth()
-                .height(42.dp)
-                .padding(top = 8.dp)
+                .height(64.dp)
+                .padding(top = 12.dp)
                 .background(if (isStartMode) BrandStart else BrandEnd)
-                .cornerRadius(12.dp)
+                .cornerRadius(14.dp)
                 .clickable(actionRunCallback<LogNowAction>()),
             contentAlignment = Alignment.Center,
         ) {
             Text(
                 if (isStartMode) "Start Shift" else "End Shift",
-                style = TextStyle(color = ColorProvider(Color.White), fontSize = 14.sp, fontWeight = FontWeight.Bold),
+                style = TextStyle(color = ColorProvider(Color.White), fontSize = 28.sp, fontWeight = FontWeight.Bold),
             )
         }
 
-        Column(modifier = GlanceModifier.padding(top = 8.dp)) {
-            Text("TODAY", style = TextStyle(color = ColorProvider(TextFaint), fontSize = 9.sp, fontWeight = FontWeight.Bold))
-            Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 2.dp)) {
+        Column(modifier = GlanceModifier.padding(top = 12.dp)) {
+            Text("TODAY", style = TextStyle(color = ColorProvider(TextFaint), fontSize = 18.sp, fontWeight = FontWeight.Bold))
+            Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 4.dp)) {
                 TodayMini("Start", todayEntry?.startTime ?: "—")
                 TodayMini("End", todayEntry?.endTime ?: "—")
                 TodayMini("Hours", todayEntry?.hours?.let { fmtNum(it) + "h" } ?: "—")
@@ -164,30 +164,30 @@ private fun WidgetContent(
             }
         }
 
-        Column(modifier = GlanceModifier.padding(top = 8.dp)) {
+        Column(modifier = GlanceModifier.padding(top = 12.dp)) {
             Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 NavBox("‹", shiftMonthParameters(-1))
                 Text(
                     monthTitle(viewedMonth),
                     modifier = GlanceModifier.defaultWeight(),
-                    style = TextStyle(color = ColorProvider(Color.White), fontSize = 12.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center),
+                    style = TextStyle(color = ColorProvider(Color.White), fontSize = 24.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center),
                 )
                 NavBox("›", shiftMonthParameters(1))
             }
 
-            val breakdownModifier = GlanceModifier.padding(top = 4.dp)
+            val breakdownModifier = GlanceModifier.padding(top = 8.dp)
             when {
                 !summary.hasData -> Text(
                     "No hours logged this month yet.",
                     modifier = breakdownModifier,
-                    style = TextStyle(color = ColorProvider(TextMuted), fontSize = 12.sp),
+                    style = TextStyle(color = ColorProvider(TextMuted), fontSize = 24.sp),
                 )
                 !summary.hasSettings -> Box(
                     modifier = breakdownModifier.clickable(actionStartActivity<MainActivity>()),
                 ) {
                     Text(
                         "${fmtNum(summary.totalHours)}h logged — open PunchCard to set an hourly rate.",
-                        style = TextStyle(color = ColorProvider(TextMuted), fontSize = 12.sp),
+                        style = TextStyle(color = ColorProvider(TextMuted), fontSize = 24.sp),
                     )
                 }
                 else -> Column(modifier = breakdownModifier) {
@@ -213,17 +213,17 @@ private fun WidgetContent(
 
         val backupEnabled = pendingCount > 0 && folderName != null
         Row(
-            modifier = GlanceModifier.fillMaxWidth().padding(top = 10.dp),
+            modifier = GlanceModifier.fillMaxWidth().padding(top = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 if (pendingCount == 0) "No days waiting to back up" else "$pendingCount day${if (pendingCount != 1) "s" else ""} pending",
                 modifier = GlanceModifier.defaultWeight(),
-                style = TextStyle(color = ColorProvider(TextMuted), fontSize = 10.sp),
+                style = TextStyle(color = ColorProvider(TextMuted), fontSize = 20.sp),
             )
             Box(
                 modifier = run {
-                    val base = GlanceModifier.background(CardDark).cornerRadius(8.dp).padding(horizontal = 8.dp, vertical = 4.dp)
+                    val base = GlanceModifier.background(CardDark).cornerRadius(10.dp).padding(horizontal = 14.dp, vertical = 8.dp)
                     if (backupEnabled) base.clickable(actionRunCallback<BackupNowAction>()) else base
                 },
             ) {
@@ -231,7 +231,7 @@ private fun WidgetContent(
                     "Back up now",
                     style = TextStyle(
                         color = ColorProvider(if (backupEnabled) Color.White else TextFaint),
-                        fontSize = 10.sp,
+                        fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                     ),
                 )
@@ -243,9 +243,9 @@ private fun WidgetContent(
 @Composable
 private fun RowScope.TodayMini(label: String, value: String) {
     Column(modifier = GlanceModifier.defaultWeight(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label.uppercase(), style = TextStyle(color = ColorProvider(TextFaint), fontSize = 9.sp, fontWeight = FontWeight.Bold))
-        Spacer(GlanceModifier.height(2.dp))
-        Text(value, style = TextStyle(color = ColorProvider(Color.White), fontSize = 13.sp, fontWeight = FontWeight.Bold))
+        Text(label.uppercase(), style = TextStyle(color = ColorProvider(TextFaint), fontSize = 18.sp, fontWeight = FontWeight.Bold))
+        Spacer(GlanceModifier.height(4.dp))
+        Text(value, style = TextStyle(color = ColorProvider(Color.White), fontSize = 26.sp, fontWeight = FontWeight.Bold))
     }
 }
 
@@ -253,27 +253,27 @@ private fun RowScope.TodayMini(label: String, value: String) {
 private fun NavBox(symbol: String, params: ActionParameters) {
     Box(
         modifier = GlanceModifier
-            .size(26.dp)
+            .size(44.dp)
             .background(CardDark)
-            .cornerRadius(8.dp)
+            .cornerRadius(10.dp)
             .clickable(actionRunCallback<ShiftMonthAction>(params)),
         contentAlignment = Alignment.Center,
     ) {
-        Text(symbol, style = TextStyle(color = ColorProvider(Color.White), fontSize = 14.sp, fontWeight = FontWeight.Bold))
+        Text(symbol, style = TextStyle(color = ColorProvider(Color.White), fontSize = 26.sp, fontWeight = FontWeight.Bold))
     }
 }
 
 @Composable
 private fun WidgetRow(label: String, value: String, valueColor: Color, emphasize: Boolean = false) {
-    Row(modifier = GlanceModifier.fillMaxWidth().padding(vertical = 1.dp)) {
+    Row(modifier = GlanceModifier.fillMaxWidth().padding(vertical = 2.dp)) {
         Text(
             label,
             modifier = GlanceModifier.defaultWeight(),
-            style = TextStyle(color = ColorProvider(TextMuted), fontSize = if (emphasize) 12.sp else 11.sp),
+            style = TextStyle(color = ColorProvider(TextMuted), fontSize = if (emphasize) 24.sp else 22.sp),
         )
         Text(
             value,
-            style = TextStyle(color = ColorProvider(valueColor), fontSize = if (emphasize) 12.sp else 11.sp, fontWeight = FontWeight.Bold),
+            style = TextStyle(color = ColorProvider(valueColor), fontSize = if (emphasize) 24.sp else 22.sp, fontWeight = FontWeight.Bold),
         )
     }
 }

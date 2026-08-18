@@ -1,6 +1,18 @@
 # Changelog
 
-## v19 — Widget: fix the real root cause (current)
+## v20 — Widget: doubled all text sizes (current)
+- Every font size in the widget roughly doubled (e.g. the month
+  breakdown rows 11–12sp → 22–24sp, the Start/End button 14sp → 28sp),
+  along with the tap targets/paddings that hold that text (button
+  height, the `‹`/`›` nav boxes, row spacing) so nothing feels cramped
+  at the larger scale.
+- Declared widget size grew accordingly (`minHeight` 440dp → 700dp,
+  `minWidth` 300dp) to fit the now-much-taller content — same
+  "doesn't retroactively resize an already-placed widget" caveat as
+  before applies; a placed widget needs removing/re-adding or manually
+  resizing again to show everything at the new scale.
+
+## v19 — Widget: fix the real root cause
 - v18's guess was wrong. Got real `adb logcat` output from a connected
   device and found the actual error:
   ```
