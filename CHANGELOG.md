@@ -1,6 +1,21 @@
 # Changelog
 
-## v16 — Widget: practically the whole Home screen (current)
+## v17 — Widget: fix content getting silently clipped (current)
+- The month breakdown added in v16 could render below the widget's
+  actual visible area and get silently clipped — RemoteViews-based
+  widgets don't scroll or shrink content to fit, they just cut it off
+  with zero indication. Tightened paddings/spacers/font sizes
+  throughout the widget to shrink its real footprint, and raised the
+  declared minimum size (`minHeight` 380dp → 440dp) with real safety
+  margin for the worst case (overtime split + savings rows both
+  showing at once).
+- This only helps widgets placed *after* the update — Android doesn't
+  retroactively resize a widget already sitting on a home screen when
+  the app changes its size requirements. An already-placed widget
+  needs to be removed and re-added, or manually dragged taller via its
+  resize handles, to pick up the fix.
+
+## v16 — Widget: practically the whole Home screen
 - Expanded the home-screen widget from a compact Start/End + net-income
   card to practically the entire Home screen: today's
   Start/End/Hours/Money, the full month breakdown (gross, overtime

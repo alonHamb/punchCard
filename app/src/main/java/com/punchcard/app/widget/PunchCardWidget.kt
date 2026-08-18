@@ -125,16 +125,16 @@ private fun WidgetContent(
             .fillMaxSize()
             .background(Color(0xFF0F172A))
             .cornerRadius(20.dp)
-            .padding(14.dp),
+            .padding(12.dp),
     ) {
-        Text("PunchCard", style = TextStyle(color = ColorProvider(Color.White), fontSize = 16.sp, fontWeight = FontWeight.Bold))
-        Text(headerDate, style = TextStyle(color = ColorProvider(TextMuted), fontSize = 11.sp))
-        Spacer(GlanceModifier.height(10.dp))
+        Text("PunchCard", style = TextStyle(color = ColorProvider(Color.White), fontSize = 15.sp, fontWeight = FontWeight.Bold))
+        Text(headerDate, style = TextStyle(color = ColorProvider(TextMuted), fontSize = 10.sp))
+        Spacer(GlanceModifier.height(6.dp))
 
         Box(
             modifier = GlanceModifier
                 .fillMaxWidth()
-                .height(48.dp)
+                .height(42.dp)
                 .background(if (isStartMode) BrandStart else BrandEnd)
                 .cornerRadius(12.dp)
                 .clickable(actionRunCallback<LogNowAction>()),
@@ -142,31 +142,31 @@ private fun WidgetContent(
         ) {
             Text(
                 if (isStartMode) "Start Shift" else "End Shift",
-                style = TextStyle(color = ColorProvider(Color.White), fontSize = 15.sp, fontWeight = FontWeight.Bold),
+                style = TextStyle(color = ColorProvider(Color.White), fontSize = 14.sp, fontWeight = FontWeight.Bold),
             )
         }
-        Spacer(GlanceModifier.height(12.dp))
+        Spacer(GlanceModifier.height(8.dp))
 
-        Text("TODAY", style = TextStyle(color = ColorProvider(TextFaint), fontSize = 10.sp, fontWeight = FontWeight.Bold))
-        Spacer(GlanceModifier.height(4.dp))
+        Text("TODAY", style = TextStyle(color = ColorProvider(TextFaint), fontSize = 9.sp, fontWeight = FontWeight.Bold))
+        Spacer(GlanceModifier.height(2.dp))
         Row(modifier = GlanceModifier.fillMaxWidth()) {
             TodayMini("Start", todayEntry?.startTime ?: "—")
             TodayMini("End", todayEntry?.endTime ?: "—")
             TodayMini("Hours", todayEntry?.hours?.let { fmtNum(it) + "h" } ?: "—")
             TodayMini("Money", todayEntry?.money?.let { "₪" + fmtNum(it) } ?: "—")
         }
-        Spacer(GlanceModifier.height(12.dp))
+        Spacer(GlanceModifier.height(8.dp))
 
         Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             NavBox("‹", shiftMonthParameters(-1))
             Text(
                 monthTitle(viewedMonth),
                 modifier = GlanceModifier.defaultWeight(),
-                style = TextStyle(color = ColorProvider(Color.White), fontSize = 13.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center),
+                style = TextStyle(color = ColorProvider(Color.White), fontSize = 12.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center),
             )
             NavBox("›", shiftMonthParameters(1))
         }
-        Spacer(GlanceModifier.height(6.dp))
+        Spacer(GlanceModifier.height(4.dp))
 
         when {
             !summary.hasData -> Text("No hours logged this month yet.", style = TextStyle(color = ColorProvider(TextMuted), fontSize = 12.sp))
@@ -199,18 +199,18 @@ private fun WidgetContent(
         }
 
         Spacer(GlanceModifier.defaultWeight())
-        Spacer(GlanceModifier.height(10.dp))
+        Spacer(GlanceModifier.height(6.dp))
 
         val backupEnabled = pendingCount > 0 && folderName != null
         Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 if (pendingCount == 0) "No days waiting to back up" else "$pendingCount day${if (pendingCount != 1) "s" else ""} pending",
                 modifier = GlanceModifier.defaultWeight(),
-                style = TextStyle(color = ColorProvider(TextMuted), fontSize = 11.sp),
+                style = TextStyle(color = ColorProvider(TextMuted), fontSize = 10.sp),
             )
             Box(
                 modifier = run {
-                    val base = GlanceModifier.background(CardDark).cornerRadius(8.dp).padding(horizontal = 10.dp, vertical = 6.dp)
+                    val base = GlanceModifier.background(CardDark).cornerRadius(8.dp).padding(horizontal = 8.dp, vertical = 4.dp)
                     if (backupEnabled) base.clickable(actionRunCallback<BackupNowAction>()) else base
                 },
             ) {
@@ -218,7 +218,7 @@ private fun WidgetContent(
                     "Back up now",
                     style = TextStyle(
                         color = ColorProvider(if (backupEnabled) Color.White else TextFaint),
-                        fontSize = 11.sp,
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                     ),
                 )
@@ -252,15 +252,15 @@ private fun NavBox(symbol: String, params: ActionParameters) {
 
 @Composable
 private fun WidgetRow(label: String, value: String, valueColor: Color, emphasize: Boolean = false) {
-    Row(modifier = GlanceModifier.fillMaxWidth().padding(vertical = 2.dp)) {
+    Row(modifier = GlanceModifier.fillMaxWidth().padding(vertical = 1.dp)) {
         Text(
             label,
             modifier = GlanceModifier.defaultWeight(),
-            style = TextStyle(color = ColorProvider(TextMuted), fontSize = if (emphasize) 13.sp else 12.sp),
+            style = TextStyle(color = ColorProvider(TextMuted), fontSize = if (emphasize) 12.sp else 11.sp),
         )
         Text(
             value,
-            style = TextStyle(color = ColorProvider(valueColor), fontSize = if (emphasize) 13.sp else 12.sp, fontWeight = FontWeight.Bold),
+            style = TextStyle(color = ColorProvider(valueColor), fontSize = if (emphasize) 12.sp else 11.sp, fontWeight = FontWeight.Bold),
         )
     }
 }
