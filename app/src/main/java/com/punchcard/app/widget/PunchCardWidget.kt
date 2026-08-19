@@ -52,6 +52,7 @@ private val CardDark = Color(0xFF1E293B)
 private val BrandStart = Color(0xFF16A34A)
 private val BrandEnd = Color(0xFFEA580C)
 private val BrandDanger = Color(0xFFF87171)
+private val BrandDone = Color(0xFF475569)
 
 /**
  * Home-screen widget: the full Home screen minus Recent Days (the one
@@ -118,7 +119,30 @@ private fun WidgetContent(
     pendingCount: Int,
     folderName: String?,
 ) {
-    val isStartMode = todayEntry?.startTime == null
+    // Three states, not two: once both times are logged for today, the
+    // button goes neutral gray ("Day Ended") instead of staying on the
+    // orange "End Shift" look — the tap that logs the end time still
+    // works the same underneath (HoursRepository.logNext re-reads the
+    // DB fresh, so tapping again while gray still corrects that day's
+    // end time, same "handy for a mis-tap" behavior the in-app button
+    // has), this just stops the button visually implying there's
+    // something new to do once the day is actually done. Resets to
+    // "Start Shift" on its own the moment a new calendar day with no
+    // entry begins — no separate reset logic needed for that, since
+    // [todayEntry] is always looked up fresh for whatever "today" is
+    // at render time.
+    val hasStart = todayEntry?.startTime != null
+    val hasEnd = todayEntry?.endTime != null
+    val buttonLabel = when {
+        !hasStart -> "Start Shift"
+        !hasEnd -> "End Shift"
+        else -> "Day Ended"
+    }
+    val buttonColor = when {
+        !hasStart -> BrandStart
+        !hasEnd -> BrandEnd
+        else -> BrandDone
+    }
 
     // Glance/RemoteViews caps every Column (and Row) at 10 direct
     // children — silently truncating the rest, with no error visible
@@ -143,13 +167,13 @@ private fun WidgetContent(
                 .fillMaxWidth()
                 .height(64.dp)
                 .padding(top = 12.dp)
-                .background(if (isStartMode) BrandStart else BrandEnd)
+                .background(buttonColor)
                 .cornerRadius(14.dp)
                 .clickable(actionRunCallback<LogNowAction>()),
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                if (isStartMode) "Start Shift" else "End Shift",
+                buttonLabel,
                 style = TextStyle(color = ColorProvider(Color.White), fontSize = 28.sp, fontWeight = FontWeight.Bold),
             )
         }

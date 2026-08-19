@@ -1,6 +1,22 @@
 # Changelog
 
-## v20 — Widget: doubled all text sizes (current)
+## v21 — Widget: third button state, "Day Ended" (current)
+- The widget's Start/End button was staying on the orange "End Shift"
+  look after the end time was logged, all the way until the next
+  calendar day — technically correct (this mirrors the in-app button's
+  own long-standing "stays put so a second tap corrects the time
+  instead of accidentally starting something new" design) but visually
+  implied there was still something to do. Added a real third state:
+  once both times are logged for today, the button turns gray and
+  reads "Day Ended" instead. Tapping it still corrects that day's end
+  time exactly as before (`LogNowAction`/`HoursRepository.logNext`
+  didn't change at all — only which label/color `WidgetContent` picks
+  did); it resets to green "Start Shift" on its own the next time
+  `provideGlance` runs and finds a fresh day with nothing logged yet,
+  no separate reset logic needed. In-app `MainScreen`'s button is
+  unchanged — this was specifically about the widget.
+
+## v20 — Widget: doubled all text sizes
 - Every font size in the widget roughly doubled (e.g. the month
   breakdown rows 11–12sp → 22–24sp, the Start/End button 14sp → 28sp),
   along with the tap targets/paddings that hold that text (button

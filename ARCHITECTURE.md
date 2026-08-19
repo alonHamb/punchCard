@@ -303,8 +303,12 @@ here is either Android/Glance plumbing or a direct call into the same
 the rest of the app already uses:
 
 - **`PunchCardWidget.kt`** — the `GlanceAppWidget`. `provideGlance`
-  resolves *everything* up front — today's `LogEntry` (Start/End mode),
-  the persisted "which month is being viewed" state (see
+  resolves *everything* up front — today's `LogEntry` (three button
+  states: green "Start Shift" with no start yet, orange "End Shift"
+  with a start but no end, gray "Day Ended" once both are logged —
+  unlike `MainScreen`'s in-app button, which stays on its "End" look
+  until the next day; see the `WidgetContent` doc comment for why the
+  widget diverges here), the persisted "which month is being viewed" state (see
   `ShiftMonthAction.kt` below), that month's `PayCalculator.MonthSummary`,
   the pending-backup count (`HoursRepository.getPendingBackupEntries().size`),
   and the backup folder name (`BackupPreferences`) — then passes all of
