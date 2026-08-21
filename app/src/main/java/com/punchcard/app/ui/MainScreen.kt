@@ -67,6 +67,7 @@ fun MainScreen(viewModel: MainViewModel, onOpenSettings: () -> Unit, onOpenManag
     val pendingCount by viewModel.pendingBackupCount.collectAsState()
     val viewMonth by viewModel.viewMonth.collectAsState()
     val monthSummary by viewModel.monthSummary.collectAsState()
+    val projectedMonthSummary by viewModel.projectedMonthSummary.collectAsState()
     val backupStatus by viewModel.backupStatus.collectAsState()
     val folderName by viewModel.folderName.collectAsState()
 
@@ -83,6 +84,12 @@ fun MainScreen(viewModel: MainViewModel, onOpenSettings: () -> Unit, onOpenManag
     // no clock cutoff. A new day (fresh, empty "today" row) always starts
     // back at Start.
     val isStartMode = today?.startTime == null
+
+    // Projection only means anything for the month still in progress —
+    // shiftMonth already forbids viewing months past the current one, so
+    // this is really just "is the viewed month the current month".
+    val isCurrentMonth = viewMonth == viewModel.currentMonthStr()
+    var showProjected by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
@@ -125,6 +132,19 @@ fun MainScreen(viewModel: MainViewModel, onOpenSettings: () -> Unit, onOpenManag
                 onNext = { viewModel.shiftMonth(1) },
                 onOpenSettings = onOpenSettings,
             )
+        }
+        if (isCurrentMonth && monthSummary?.hasSettings == true) {
+            item { Spacer(Modifier.height(12.dp)) }
+            item {
+                ProjectedIncomeToggle(
+                    expanded = showProjected,
+                    onClick = { showProjected = !showProjected },
+                )
+            }
+            if (showProjected) {
+                item { Spacer(Modifier.height(12.dp)) }
+                item { ProjectedMonthCard(monthStr = viewMonth, actual = monthSummary, projected = projectedMonthSummary) }
+            }
         }
         item { Spacer(Modifier.height(20.dp)) }
         item { SectionLabel("RECENT DAYS") }
@@ -354,6 +374,84 @@ private fun MonthCard(
                         "Estimate for Israeli salaried employees using 2026 tax brackets, ${fmtNum(s.creditPoints)} credit points, National Insurance + health tax rates" +
                             (if (s.overtimeEnabled) ", and 125%/150% overtime pay after 8h/day" else "") +
                             ". Not tax advice — actual payslip figures may differ.",
+                        color = Color(0xFF94A3B8),
+                        fontSize = 11.sp,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProjectedIncomeToggle(expanded: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(Color.White.copy(alpha = 0.08f))
+            .clickable(onClick = onClick)
+            .padding(vertical = 12.dp, horizontal = 16.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            if (expanded) "Hide projected monthly income" else "See projected monthly income",
+            color = Color.White,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+        )
+    }
+}
+
+@Composable
+private fun ProjectedMonthCard(
+    monthStr: String,
+    actual: PayCalculator.MonthSummary?,
+    projected: PayCalculator.MonthSummary?,
+) {
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(18.dp)) {
+            Text("Projected — ${monthTitle(monthStr)}", color = BrandTextOnCard, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            Spacer(Modifier.height(12.dp))
+
+            val s = projected
+            when {
+                s == null -> Text("Loading…", color = Color(0xFF94A3B8), fontSize = 13.sp)
+                !s.hasSettings -> Text("No hourly rate is set yet.", color = Color(0xFF94A3B8), fontSize = 13.sp)
+                else -> Column {
+                    val regularHours = s.totalHours - s.overtimeHours
+                    if (s.overtimeHours > 0) {
+                        MonthRow("Hours (projected)", fmtNum(s.totalHours) + "h", BrandTextOnCard, emphasize = true)
+                        MonthRow("Regular pay (${fmtNum(regularHours)}h, up to 8h/day)", "₪" + fmtNum(s.regularPay), BrandTextOnCard)
+                        MonthRow("Overtime pay (${fmtNum(s.overtimeHours)}h @ 125%/150%)", "₪" + fmtNum(s.overtimePay), BrandTextOnCard)
+                        MonthRow("Gross pay", "₪" + fmtNum(s.gross), BrandTextOnCard, emphasize = true)
+                    } else {
+                        MonthRow("Gross pay (${fmtNum(s.totalHours)}h projected)", "₪" + fmtNum(s.gross), BrandTextOnCard)
+                    }
+                    MonthRow("Income tax", "−₪" + fmtNum(s.incomeTax), BrandDanger)
+                    MonthRow("Nat'l Insurance + health", "−₪" + fmtNum(s.niHealth), BrandDanger)
+                    MonthRow("Pension (${fmtNum(s.pensionPct)}%)", "−₪" + fmtNum(s.pension), BrandDanger)
+                    MonthRow("Net income (projected)", "₪" + fmtNum(s.net), BrandStart, emphasize = true)
+                    if (s.savingsPct > 0) {
+                        MonthRow("Savings (${fmtNum(s.savingsPct)}% of net)", "₪" + fmtNum(s.savings), BrandTextOnCard)
+                        MonthRow("Left to spend", "₪" + fmtNum(s.leftToSpend), BrandStart, emphasize = true)
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    val remainingHours = s.totalHours - (actual?.totalHours ?: 0.0)
+                    Text(
+                        if (remainingHours > 0) {
+                            "Assumes about ${fmtNum(remainingHours)}h more, at your average logged day so far this month " +
+                                "(or 8h/day if nothing's logged yet), for every day left in the month — skipping Israeli " +
+                                "work holidays (Rosh Hashana, Yom Kippur, Sukkot, Pesach, Yom Ha'atzmaut, Shavuot). " +
+                                "Not a guarantee — just a projection."
+                        } else {
+                            "Every remaining day this month is already logged (or a work holiday), so this matches the actual monthly report."
+                        },
                         color = Color(0xFF94A3B8),
                         fontSize = 11.sp,
                     )

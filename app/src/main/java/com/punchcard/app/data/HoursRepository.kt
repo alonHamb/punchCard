@@ -90,6 +90,15 @@ class HoursRepository(
         return PayCalculator.computeMonthSummary(monthStr, entries, payDao::getForDateOrBefore, payDao::getEarliest)
     }
 
+    /** Same as [getMonthSummary], but with every not-yet-logged day from
+     *  [today] onward filled in with the month's average logged hours-per-
+     *  day so far (or 8.0 if nothing's logged yet) — a "projected" total
+     *  for the month rather than just what's actually been recorded. */
+    suspend fun getProjectedMonthSummary(monthStr: String, today: String): PayCalculator.MonthSummary {
+        val entries = logDao.getCompleteForMonth(monthStr)
+        return PayCalculator.computeProjectedMonthSummary(monthStr, entries, today, payDao::getForDateOrBefore, payDao::getEarliest)
+    }
+
     suspend fun getPendingBackupEntries(): List<LogEntry> = logDao.getPendingBackup()
 
     suspend fun markBackedUp(date: String) = logDao.markBackedUp(date)
