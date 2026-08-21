@@ -253,15 +253,53 @@ object PayCalculator {
         )
     }
 
+    private fun daysInMonth(year: Int, month: Int): Int = when (month) {
+        1, 3, 5, 7, 8, 10, 12 -> 31
+        4, 6, 9, 11 -> 30
+        2 -> if ((year % 4 == 0 && year % 100 != 0) || year % 400 == 0) 29 else 28
+        else -> 30
+    }
+
     fun isLastDayOfMonth(date: String): Boolean {
         val parts = date.split("-").map { it.toInt() }
         val y = parts[0]; val m = parts[1]; val d = parts[2]
-        val daysInMonth = when (m) {
-            1, 3, 5, 7, 8, 10, 12 -> 31
-            4, 6, 9, 11 -> 30
-            2 -> if ((y % 4 == 0 && y % 100 != 0) || y % 400 == 0) 29 else 28
-            else -> 30
+        return d == daysInMonth(y, m)
+    }
+
+    /**
+     * Same as [computeMonthSummary], but for every day in [monthStr] that
+     * hasn't been logged yet, isn't in the past (date >= [today]), and
+     * isn't an Israeli statutory holiday ([IsraeliHolidays.isHoliday] —
+     * work holidays, not school holidays, since those aren't days off
+     * work), assumes a projected day of [entries]'s average logged
+     * hours-per-day (or 8.0 if nothing's been logged yet this month) and
+     * folds those synthetic days in alongside the real ones. This is a
+     * "if I keep up this pace, here's roughly what the month ends at"
+     * projection, not a recorded fact — a month already fully in the past
+     * (every date < [today]) or fully logged naturally has no synthetic
+     * days added, so it comes back identical to [computeMonthSummary].
+     */
+    suspend fun computeProjectedMonthSummary(
+        monthStr: String,
+        entries: List<LogEntry>,
+        today: String,
+        getForDateOrBefore: suspend (String) -> PaySettings?,
+        getEarliest: suspend () -> PaySettings?,
+    ): MonthSummary {
+        val loggedHours = entries.mapNotNull { it.hours }
+        val avgHours = if (loggedHours.isNotEmpty()) loggedHours.sum() / loggedHours.size else 8.0
+
+        val loggedDates = entries.map { it.date }.toSet()
+        val (year, month) = monthStr.split("-").map { it.toInt() }
+        val lastDay = daysInMonth(year, month)
+
+        val syntheticEntries = (1..lastDay).mapNotNull { day ->
+            val date = "%04d-%02d-%02d".format(year, month, day)
+            if (date >= today && date !in loggedDates && !IsraeliHolidays.isHoliday(date)) {
+                LogEntry(date = date, hours = avgHours)
+            } else null
         }
-        return d == daysInMonth
+
+        return computeMonthSummary(monthStr, entries + syntheticEntries, getForDateOrBefore, getEarliest)
     }
 }

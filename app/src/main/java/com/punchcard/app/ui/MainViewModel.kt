@@ -74,6 +74,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _monthSummary = MutableStateFlow<PayCalculator.MonthSummary?>(null)
     val monthSummary: StateFlow<PayCalculator.MonthSummary?> = _monthSummary.asStateFlow()
 
+    private val _projectedMonthSummary = MutableStateFlow<PayCalculator.MonthSummary?>(null)
+    val projectedMonthSummary: StateFlow<PayCalculator.MonthSummary?> = _projectedMonthSummary.asStateFlow()
+
     private val _backupStatus = MutableStateFlow<String?>(null)
     val backupStatus: StateFlow<String?> = _backupStatus.asStateFlow()
 
@@ -88,6 +91,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _viewMonth.value = monthStr
         viewModelScope.launch {
             _monthSummary.value = repo.getMonthSummary(monthStr)
+            _projectedMonthSummary.value = repo.getProjectedMonthSummary(monthStr, todayLocal())
         }
     }
 

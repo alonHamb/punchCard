@@ -296,6 +296,75 @@ class PayCalculatorTest {
         assertEquals(summary.gross - summary.niHealth - summary.pension, summary.net, 0.001)
     }
 
+    // ---- projected month summary ----
+
+    @Test
+    fun `projected summary fills unlogged remaining days with the average logged so far`() = runTest {
+        val settings = PaySettings(effectiveDate = "2026-08-01", hourlyRate = 60.0, creditPoints = 2.25, pensionPct = 6.0)
+        // Two logged 8h days (avg 8h); August 2026 has 31 days, and none
+        // of them are Israeli holidays, so every day from "today" (08-05)
+        // through 08-31 (27 days) gets a synthetic 8h day added.
+        val entries = listOf(
+            LogEntry(date = "2026-08-03", startTime = "09:00", endTime = "17:00", hours = 8.0),
+            LogEntry(date = "2026-08-04", startTime = "09:00", endTime = "17:00", hours = 8.0),
+        )
+        val projected = PayCalculator.computeProjectedMonthSummary(
+            monthStr = "2026-08",
+            entries = entries,
+            today = "2026-08-05",
+            getForDateOrBefore = { settings },
+            getEarliest = { settings },
+        )
+        // 2 real days + 27 synthetic days (08-05..08-31) = 29 days * 8h = 232h.
+        assertEquals(232.0, projected.totalHours, 0.001)
+    }
+
+    @Test
+    fun `projected summary matches the actual summary once the month is fully in the past`() = runTest {
+        val settings = PaySettings(effectiveDate = "2026-08-01", hourlyRate = 60.0, creditPoints = 2.25, pensionPct = 6.0)
+        val entries = listOf(LogEntry(date = "2026-08-03", startTime = "09:00", endTime = "17:00", hours = 8.0))
+        val projected = PayCalculator.computeProjectedMonthSummary(
+            monthStr = "2026-08",
+            entries = entries,
+            today = "2026-09-01", // viewing August after it's already over
+            getForDateOrBefore = { settings },
+            getEarliest = { settings },
+        )
+        val actual = PayCalculator.computeMonthSummary(
+            monthStr = "2026-08",
+            entries = entries,
+            getForDateOrBefore = { settings },
+            getEarliest = { settings },
+        )
+        assertEquals(actual.totalHours, projected.totalHours, 0.001)
+        assertEquals(actual.net, projected.net, 0.001)
+    }
+
+    @Test
+    fun `projected summary skips Israeli work holidays when filling remaining days`() = runTest {
+        val settings = PaySettings(effectiveDate = "2026-09-01", hourlyRate = 60.0, creditPoints = 2.25, pensionPct = 6.0)
+        // September 2026 has Rosh Hashana (09-12, 09-13) and Yom Kippur
+        // (09-21) — none of those three days should get a synthetic entry.
+        val projected = PayCalculator.computeProjectedMonthSummary(
+            monthStr = "2026-09",
+            entries = emptyList(),
+            today = "2026-09-10",
+            getForDateOrBefore = { settings },
+            getEarliest = { settings },
+        )
+        // 30 days in September, minus 9 already-past days (09-01..09-09),
+        // minus 3 holiday days (09-12, 09-13, 09-21) = 18 synthetic 8h days.
+        assertEquals(144.0, projected.totalHours, 0.001)
+    }
+
+    @Test
+    fun `isHoliday recognizes the statutory holidays and rejects ordinary days`() {
+        assertTrue(IsraeliHolidays.isHoliday("2026-09-21")) // Yom Kippur 2026
+        assertTrue(IsraeliHolidays.isHoliday("2026-04-02")) // Pesach I 2026
+        assertTrue(!IsraeliHolidays.isHoliday("2026-08-05")) // an ordinary Wednesday
+        assertTrue(!IsraeliHolidays.isHoliday("2026-09-14")) // Chol HaMoed / regular workday, not a holiday itself
+    }
+
     @Test
     fun `entries with no hours logged are skipped without crashing`() = runTest {
         val settings = PaySettings(effectiveDate = "2026-08-01", hourlyRate = 60.0, creditPoints = 2.25, pensionPct = 6.0)
