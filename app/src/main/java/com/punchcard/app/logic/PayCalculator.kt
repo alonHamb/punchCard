@@ -2,6 +2,8 @@ package com.punchcard.app.logic
 
 import com.punchcard.app.data.LogEntry
 import com.punchcard.app.data.PaySettings
+import java.time.DayOfWeek
+import java.time.LocalDate
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.round
@@ -266,13 +268,37 @@ object PayCalculator {
         return d == daysInMonth(y, m)
     }
 
+    // Default assumed hours for a synthetic (unlogged) workday, used only
+    // when nothing's been logged yet this month to average from. Thursday
+    // is a shorter day; every other working day (Sun-Wed) defaults to the
+    // longer figure. Neither includes BREAK_WINDOWS — those are already
+    // baked into computeHours for real, logged shifts.
+    const val DEFAULT_THURSDAY_HOURS = 7.5
+    const val DEFAULT_WORKDAY_HOURS = 8.5
+
+    private fun dayOfWeek(date: String): DayOfWeek {
+        val parts = date.split("-").map { it.toInt() }
+        return LocalDate.of(parts[0], parts[1], parts[2]).dayOfWeek
+    }
+
+    /** True if [date] is a Friday or Saturday — Israel's weekend, and not a working day. */
+    fun isWeekend(date: String): Boolean {
+        val dow = dayOfWeek(date)
+        return dow == DayOfWeek.FRIDAY || dow == DayOfWeek.SATURDAY
+    }
+
+    private fun defaultHoursFor(date: String): Double =
+        if (dayOfWeek(date) == DayOfWeek.THURSDAY) DEFAULT_THURSDAY_HOURS else DEFAULT_WORKDAY_HOURS
+
     /**
      * Same as [computeMonthSummary], but for every day in [monthStr] that
-     * hasn't been logged yet, isn't in the past (date >= [today]), and
-     * isn't an Israeli statutory holiday ([IsraeliHolidays.isHoliday] —
-     * work holidays, not school holidays, since those aren't days off
-     * work), assumes a projected day of [entries]'s average logged
-     * hours-per-day (or 8.0 if nothing's been logged yet this month) and
+     * hasn't been logged yet, isn't in the past (date >= [today]), isn't
+     * a weekend ([isWeekend] — Friday/Saturday), and isn't an Israeli
+     * statutory holiday ([IsraeliHolidays.isHoliday] — work holidays, not
+     * school holidays, since those aren't days off work), assumes a
+     * projected day of [entries]'s average logged hours-per-day (or, if
+     * nothing's been logged yet this month, [DEFAULT_THURSDAY_HOURS] on
+     * Thursdays and [DEFAULT_WORKDAY_HOURS] on other working days) and
      * folds those synthetic days in alongside the real ones. This is a
      * "if I keep up this pace, here's roughly what the month ends at"
      * projection, not a recorded fact — a month already fully in the past
@@ -287,7 +313,7 @@ object PayCalculator {
         getEarliest: suspend () -> PaySettings?,
     ): MonthSummary {
         val loggedHours = entries.mapNotNull { it.hours }
-        val avgHours = if (loggedHours.isNotEmpty()) loggedHours.sum() / loggedHours.size else 8.0
+        val avgHours = if (loggedHours.isNotEmpty()) loggedHours.sum() / loggedHours.size else null
 
         val loggedDates = entries.map { it.date }.toSet()
         val (year, month) = monthStr.split("-").map { it.toInt() }
@@ -295,8 +321,8 @@ object PayCalculator {
 
         val syntheticEntries = (1..lastDay).mapNotNull { day ->
             val date = "%04d-%02d-%02d".format(year, month, day)
-            if (date >= today && date !in loggedDates && !IsraeliHolidays.isHoliday(date)) {
-                LogEntry(date = date, hours = avgHours)
+            if (date >= today && date !in loggedDates && !isWeekend(date) && !IsraeliHolidays.isHoliday(date)) {
+                LogEntry(date = date, hours = avgHours ?: defaultHoursFor(date))
             } else null
         }
 
