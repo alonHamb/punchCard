@@ -57,7 +57,7 @@ object PayCalculator {
     // pre-holiday days — like the rest of this app's tax math, it's a
     // documented estimate, not a legal payroll calculation.
     // ---------------------------------------------------------------
-    const val REGULAR_DAILY_HOURS = 8.0
+    const val REGULAR_DAILY_HOURS = 8.6
     const val OVERTIME_TIER1_HOURS = 2.0  // the 9th and 10th hour of a day
     const val OVERTIME_RATE_TIER1 = 1.25
     const val OVERTIME_RATE_TIER2 = 1.50  // the 11th hour of a day onward
