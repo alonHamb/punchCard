@@ -1,25 +1,13 @@
 # PunchCard
 
-A fully native Android app (Kotlin + Jetpack Compose) for logging work
-hours, estimating take-home pay for an Israeli salaried employee, and
-backing up to a folder of your choice — all running 100% on-device, with
-no server, no account, and no `INTERNET` permission in the manifest at
-all. The only thing that ever touches storage outside the phone is the
-backup file, and even that goes out indirectly through Android's Storage
-Access Framework (e.g. into a folder your Google Drive app syncs) — the
-app itself never opens a network connection.
-
-This project started as a Progressive Web App backed by a Google Sheet
-and evolved, over several iterations, into this native rewrite. See
-[`CHANGELOG.md`](CHANGELOG.md) for the full history.
+A fully native Android app for logging work
+hours and estimating take-home pay for Israeli salaried employees.
+all running 100% on-device.
 
 ## Features
 
 - **One-tap Start/End logging.** A single button shows "Start Shift" until
-  you tap it, then switches to "End Shift" — End only ever becomes
-  reachable after Start has actually been logged for that day, and every
-  new calendar day resets back to Start automatically, even if the app
-  was left open across midnight.
+  you tap it, then switches to "End Shift"
 - **Automatic break deduction.** Three fixed daily breaks (10:00–10:10,
   12:40–13:20, 15:00–15:10) are subtracted from worked hours whenever a
   shift overlaps them.
@@ -28,29 +16,31 @@ and evolved, over several iterations, into this native rewrite. See
   from your hourly rate and tax credit points. This is an **estimate,
   not payroll or tax advice** — see the caveats in
   [`ARCHITECTURE.md`](ARCHITECTURE.md#pay-calculator).
-- **Overtime pay.** Hours beyond 8 in a single day are automatically
+
+- **Overtime pay.** Hours beyond 8.66 in a single day are automatically
   paid at 125% (hours 9–10) and 150% (hour 11+), toggleable per-settings
   in case you're in an overtime-exempt role. Included in both the daily
   Money figure and the month's Gross pay.
 - **Effective-dated pay settings.** Changing your hourly rate, credit
-  points, pension %, or savings % only ever affects today onward — past
-  months keep using whatever was in effect at the time, so they never
-  silently change.
+  points, pension %, or savings % only ever affects today onward.
+
 - **Savings target.** Set a savings % in Settings and the Home screen
   splits net income into "Savings" and "Left to spend" — purely
-  informational, it never changes what net income itself means. Leave
-  it at 0% to not use this at all.
+  informational, it never changes what net income itself means.
+ Leave it at 0% to not use this at all.
+
 - **Manage entries screen.** Browse any month, edit or delete any day's
   start/end time, or add a day you forgot to log entirely — for any
   date, past or present.
-- **Local-first backup, no cloud account needed.** A real background job
-  (WorkManager — runs even while the app is closed) checks every ~15
-  minutes whether it's between 18:00–06:00 and the phone is on wifi; if
-  so, it writes any completed days into that month's CSV file in a
-  folder you picked once in Settings, plus a full month summary once the
-  month's last day is logged. A **"Back up now"** button forces an
-  immediate backup regardless of the time or network — useful right
-  after adding or fixing an entry.
+
+- **Local-first backup, no cloud account needed.**
+writes any completed days into that month's CSV file in a
+  folder you picked in Settings, plus a full month summary once the
+  month's last day is logged. 
+
+A **"Back up now"** button forces an
+  immediate backup.
+
 - **Survives an uninstall/reinstall.** Since all data lives in a local
   database that Android wipes along with the app, Settings has a
   **"Restore from backup folder"** button: point it at the folder your
