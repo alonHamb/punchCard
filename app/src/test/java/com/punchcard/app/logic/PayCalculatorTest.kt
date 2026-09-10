@@ -146,6 +146,51 @@ class PayCalculatorTest {
     }
 
     @Test
+    fun `daily spending is subtracted from gross once per day worked`() = runTest {
+        val settings = PaySettings(
+            effectiveDate = "2026-08-01",
+            hourlyRate = 60.0,
+            creditPoints = 2.25,
+            pensionPct = 6.0,
+            dailySpending = 15.0,
+        )
+        val entries = listOf(
+            LogEntry(date = "2026-08-03", startTime = "09:00", endTime = "17:00", hours = 8.0),
+            LogEntry(date = "2026-08-04", startTime = "09:00", endTime = "17:00", hours = 8.0),
+        )
+        val summary = PayCalculator.computeMonthSummary(
+            monthStr = "2026-08",
+            entries = entries,
+            getForDateOrBefore = { settings },
+            getEarliest = { settings },
+        )
+        // 2 days * 15 = 30 subtracted, from 16h * 60 = 960 pay.
+        assertEquals(30.0, summary.dailySpending, 0.001)
+        assertEquals(930.0, summary.gross, 0.001)
+    }
+
+    @Test
+    fun `transportation and daily spending combine in gross`() = runTest {
+        val settings = PaySettings(
+            effectiveDate = "2026-08-01",
+            hourlyRate = 60.0,
+            creditPoints = 2.25,
+            pensionPct = 6.0,
+            transportationCosts = 20.0,
+            dailySpending = 15.0,
+        )
+        val entries = listOf(LogEntry(date = "2026-08-03", startTime = "09:00", endTime = "17:00", hours = 8.0))
+        val summary = PayCalculator.computeMonthSummary(
+            monthStr = "2026-08",
+            entries = entries,
+            getForDateOrBefore = { settings },
+            getEarliest = { settings },
+        )
+        // 480 (pay) + 20 (transportation) - 15 (daily spending) = 485.
+        assertEquals(485.0, summary.gross, 0.001)
+    }
+
+    @Test
     fun `no entries yields hasData false`() = runTest {
         val summary = PayCalculator.computeMonthSummary(
             monthStr = "2026-09",

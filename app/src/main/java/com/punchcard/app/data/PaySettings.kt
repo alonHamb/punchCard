@@ -19,4 +19,5 @@ data class PaySettings(
     val overtimeEnabled: Boolean = true,     // 125%/150% pay after 8h/day (see PayCalculator)
     val savingsPct: Double = 0.0,            // set-aside-from-net-income target, e.g. 10.0 for 10%
     val transportationCosts: Double = 0.0,   // per-day transportation reimbursement, added to gross pay for every day worked
+    val dailySpending: Double = 0.0,         // per-day spending constant, subtracted from gross pay for every day worked
 )

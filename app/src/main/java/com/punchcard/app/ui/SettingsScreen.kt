@@ -50,6 +50,7 @@ fun SettingsScreen(viewModel: MainViewModel, onClose: () -> Unit) {
     val folderName by viewModel.folderName.collectAsState()
 
     var transportationCosts by remember { mutableStateOf("0") }
+    var dailySpending by remember { mutableStateOf("0") }
     var hourlyRate by remember { mutableStateOf("") }
     var creditPoints by remember { mutableStateOf("") }
     var pensionPct by remember { mutableStateOf("6") }
@@ -63,6 +64,7 @@ fun SettingsScreen(viewModel: MainViewModel, onClose: () -> Unit) {
     LaunchedEffect(paySettings) {
         if (!prefilled && paySettings != null) {
             transportationCosts = paySettings!!.transportationCosts.toString()
+            dailySpending = paySettings!!.dailySpending.toString()
             hourlyRate = paySettings!!.hourlyRate.toString()
             creditPoints = paySettings!!.creditPoints.toString()
             pensionPct = paySettings!!.pensionPct.toString()
@@ -118,6 +120,14 @@ fun SettingsScreen(viewModel: MainViewModel, onClose: () -> Unit) {
                 fontSize = 11.sp,
             )
             Spacer(Modifier.height(12.dp))
+            LabeledField("Daily spending (₪)", dailySpending, { dailySpending = it }, KeyboardType.Decimal)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Subtracted from gross pay for every day you log hours — a constant daily expense (e.g. lunch, parking). Leave at 0 to skip.",
+                color = Color(0xFF94A3B8),
+                fontSize = 11.sp,
+            )
+            Spacer(Modifier.height(12.dp))
             LabeledField("Tax credit points", creditPoints, { creditPoints = it }, KeyboardType.Decimal)
             Spacer(Modifier.height(12.dp))
             LabeledField("Pension deduction (%)", pensionPct, { pensionPct = it }, KeyboardType.Decimal)
@@ -157,16 +167,18 @@ fun SettingsScreen(viewModel: MainViewModel, onClose: () -> Unit) {
                     val pension = pensionPct.toDoubleOrNull()
                     val savings = savingsPct.toDoubleOrNull()
                     val transportation = transportationCosts.toDoubleOrNull()
+                    val spending = dailySpending.toDoubleOrNull()
                     saveMessage = when {
                         rate == null || !rate.isFinite() || rate <= 0 -> "Enter a valid hourly rate."
                         transportation == null || !transportation.isFinite() || transportation < 0 -> "Enter a valid transportation cost."
+                        spending == null || !spending.isFinite() || spending < 0 -> "Enter a valid daily spending amount."
                         points == null || !points.isFinite() || points < 0 -> "Enter valid credit points."
                         pension == null || !pension.isFinite() || pension < 0 || pension >= 100 ->
                             "Enter a valid pension % (0–99)."
                         savings == null || !savings.isFinite() || savings < 0 || savings >= 100 ->
                             "Enter a valid savings % (0–99)."
                         else -> {
-                            viewModel.savePaySettings(rate, points, pension, overtimeEnabled, savings, transportation)
+                            viewModel.savePaySettings(rate, points, pension, overtimeEnabled, savings, transportation, spending)
                             "Saved — applies from today onward."
                         }
                     }

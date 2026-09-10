@@ -168,6 +168,7 @@ object PayCalculator {
         val regularPay: Double = 0.0,
         val overtimePay: Double = 0.0,
         val transportationCosts: Double = 0.0, // per-day reimbursement, summed across days worked (already included in gross)
+        val dailySpending: Double = 0.0, // per-day spending constant, summed across days worked (already deducted from gross)
         val gross: Double = 0.0,
         val incomeTax: Double = 0.0,
         val niHealth: Double = 0.0,
@@ -206,17 +207,19 @@ object PayCalculator {
         var regularPayTotal = 0.0
         var overtimePayTotal = 0.0
         var transportationTotal = 0.0
+        var dailySpendingTotal = 0.0
         var lastDate = entries[0].date
         for (entry in entries) {
             val hours = entry.hours ?: continue
             val settings = settingsForDate(entry.date, getForDateOrBefore, getEarliest)
             if (settings != null) {
                 val daily = computeDailyPay(hours, settings.hourlyRate, settings.overtimeEnabled)
-                grossTotal += daily.pay + settings.transportationCosts
+                grossTotal += daily.pay + settings.transportationCosts - settings.dailySpending
                 overtimeHoursTotal += daily.overtimeHours
                 regularPayTotal += daily.regularPay
                 overtimePayTotal += daily.overtimePay
                 transportationTotal += settings.transportationCosts
+                dailySpendingTotal += settings.dailySpending
             }
             totalHours += hours
             if (entry.date > lastDate) lastDate = entry.date
@@ -245,6 +248,7 @@ object PayCalculator {
             regularPay = round2(regularPayTotal),
             overtimePay = round2(overtimePayTotal),
             transportationCosts = round2(transportationTotal),
+            dailySpending = round2(dailySpendingTotal),
             gross = round2(grossTotal),
             incomeTax = round2(incomeTax),
             niHealth = round2(niHealth),

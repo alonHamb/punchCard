@@ -348,10 +348,16 @@ private fun MonthCard(
                         if (s.transportationCosts > 0) {
                             MonthRow("Transportation reimbursement", "₪" + fmtNum(s.transportationCosts), BrandTextOnCard)
                         }
+                        if (s.dailySpending > 0) {
+                            MonthRow("Daily spending", "−₪" + fmtNum(s.dailySpending), BrandDanger)
+                        }
                         MonthRow("Gross pay", "₪" + fmtNum(s.gross), BrandTextOnCard, emphasize = true)
                     } else {
                         if (s.transportationCosts > 0) {
                             MonthRow("Transportation reimbursement", "₪" + fmtNum(s.transportationCosts), BrandTextOnCard)
+                        }
+                        if (s.dailySpending > 0) {
+                            MonthRow("Daily spending", "−₪" + fmtNum(s.dailySpending), BrandDanger)
                         }
                         MonthRow("Gross pay (${fmtNum(s.totalHours)}h logged)", "₪" + fmtNum(s.gross), BrandTextOnCard)
                     }
@@ -426,10 +432,16 @@ private fun ProjectedMonthCard(
                         if (s.transportationCosts > 0) {
                             MonthRow("Transportation reimbursement", "₪" + fmtNum(s.transportationCosts), BrandTextOnCard)
                         }
+                        if (s.dailySpending > 0) {
+                            MonthRow("Daily spending", "−₪" + fmtNum(s.dailySpending), BrandDanger)
+                        }
                         MonthRow("Gross pay", "₪" + fmtNum(s.gross), BrandTextOnCard, emphasize = true)
                     } else {
                         if (s.transportationCosts > 0) {
                             MonthRow("Transportation reimbursement", "₪" + fmtNum(s.transportationCosts), BrandTextOnCard)
+                        }
+                        if (s.dailySpending > 0) {
+                            MonthRow("Daily spending", "−₪" + fmtNum(s.dailySpending), BrandDanger)
                         }
                         MonthRow("Gross pay (${fmtNum(s.totalHours)}h projected)", "₪" + fmtNum(s.gross), BrandTextOnCard)
                     }
