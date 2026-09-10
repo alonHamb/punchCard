@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [LogEntry::class, PaySettings::class], version = 5, exportSchema = false)
+@Database(entities = [LogEntry::class, PaySettings::class], version = 6, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun logEntryDao(): LogEntryDao
     abstract fun paySettingsDao(): PaySettingsDao
@@ -56,13 +56,49 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // v5 -> v6: collapsed PaySettings from an append-only,
+        // effective-dated history (keyed by effectiveDate, one row per
+        // change) into a single global row (fixed id = 0). Settings are
+        // no longer "in effect from a date onward" — the one saved row
+        // now applies to every month, past and future alike. Keeps only
+        // the most recently effective row's values (the ones the
+        // Settings screen was already showing as "current") and drops
+        // the rest of the history.
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE pay_settings_new (
+                        id INTEGER NOT NULL PRIMARY KEY,
+                        hourlyRate REAL NOT NULL,
+                        creditPoints REAL NOT NULL,
+                        pensionPct REAL NOT NULL,
+                        overtimeEnabled INTEGER NOT NULL,
+                        savingsPct REAL NOT NULL,
+                        transportationCosts REAL NOT NULL,
+                        dailySpending REAL NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    INSERT INTO pay_settings_new (id, hourlyRate, creditPoints, pensionPct, overtimeEnabled, savingsPct, transportationCosts, dailySpending)
+                    SELECT 0, hourlyRate, creditPoints, pensionPct, overtimeEnabled, savingsPct, transportationCosts, dailySpending
+                    FROM pay_settings ORDER BY effectiveDate DESC LIMIT 1
+                    """.trimIndent()
+                )
+                db.execSQL("DROP TABLE pay_settings")
+                db.execSQL("ALTER TABLE pay_settings_new RENAME TO pay_settings")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "hours_log.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build().also { INSTANCE = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6).build().also { INSTANCE = it }
             }
         }
     }

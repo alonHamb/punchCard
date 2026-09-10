@@ -2,12 +2,11 @@ package com.punchcard.app.ui
 
 /**
  * The app displays dates as DD/MM/YYYY everywhere in the UI. Storage
- * stays ISO "YYYY-MM-DD" everywhere else — Room primary keys
- * (LogEntry.date, PaySettings.effectiveDate), the CSV backup files, and
- * every date-range/"effective as of" comparison in PayCalculator and
- * the DAOs all rely on that format sorting and comparing correctly as
- * plain strings. Never change the storage format — this function only
- * converts it for display.
+ * stays ISO "YYYY-MM-DD" everywhere else — Room's LogEntry.date primary
+ * key, the CSV backup files, and every date comparison in PayCalculator
+ * and the DAOs all rely on that format sorting and comparing correctly
+ * as plain strings. Never change the storage format — this function
+ * only converts it for display.
  */
 private val ISO_DATE_REGEX = Regex("""\d{4}-\d{2}-\d{2}""")
 

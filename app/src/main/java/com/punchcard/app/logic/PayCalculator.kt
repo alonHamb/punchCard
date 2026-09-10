@@ -127,14 +127,6 @@ object PayCalculator {
     fun computeMoney(hours: Double, hourlyRate: Double, overtimeEnabled: Boolean): Double =
         computeDailyPay(hours, hourlyRate, overtimeEnabled).pay
 
-    /** Returns the settings in effect on [date] (most recent effectiveDate <= date),
-     *  falling back to the earliest known settings if [date] predates all of them. */
-    suspend fun settingsForDate(
-        date: String,
-        getForDateOrBefore: suspend (String) -> PaySettings?,
-        getEarliest: suspend () -> PaySettings?,
-    ): PaySettings? = getForDateOrBefore(date) ?: getEarliest()
-
     // internal (not private) so PayCalculatorTest can exercise the tax
     // brackets and NI thresholds directly, in addition to indirectly via
     // computeMonthSummary.
@@ -185,20 +177,22 @@ object PayCalculator {
 
     /**
      * [entries] should be every complete (hours != null) LogEntry whose date
-     * starts with [monthStr] ("YYYY-MM"). Gross pay is summed per-day using
-     * whatever settings were effective on that specific date (so a mid-month
-     * rate change is handled correctly); the tax-side numbers (credit points,
-     * pension %) use the settings in effect on the last logged day of the month.
+     * starts with [monthStr] ("YYYY-MM"). [settings] is the single global
+     * pay/tax configuration, applied uniformly to every entry regardless of
+     * its date — there's no per-date history, so changing settings reshapes
+     * every month's numbers, past and future alike.
      */
-    suspend fun computeMonthSummary(
+    fun computeMonthSummary(
         monthStr: String,
         entries: List<LogEntry>,
-        getForDateOrBefore: suspend (String) -> PaySettings?,
-        getEarliest: suspend () -> PaySettings?,
+        settings: PaySettings?,
     ): MonthSummary {
         if (entries.isEmpty()) {
-            val anySettings = settingsForDate(monthStr + "-28", getForDateOrBefore, getEarliest)
-            return MonthSummary(month = monthStr, hasData = false, hasSettings = anySettings != null)
+            return MonthSummary(month = monthStr, hasData = false, hasSettings = settings != null)
+        }
+        if (settings == null) {
+            val totalHours = entries.sumOf { it.hours ?: 0.0 }
+            return MonthSummary(month = monthStr, hasData = true, hasSettings = false, totalHours = round2(totalHours))
         }
 
         var grossTotal = 0.0
@@ -208,35 +202,27 @@ object PayCalculator {
         var overtimePayTotal = 0.0
         var transportationTotal = 0.0
         var dailySpendingTotal = 0.0
-        var lastDate = entries[0].date
         for (entry in entries) {
             val hours = entry.hours ?: continue
-            val settings = settingsForDate(entry.date, getForDateOrBefore, getEarliest)
-            if (settings != null) {
-                val daily = computeDailyPay(hours, settings.hourlyRate, settings.overtimeEnabled)
-                grossTotal += daily.pay + settings.transportationCosts - settings.dailySpending
-                overtimeHoursTotal += daily.overtimeHours
-                regularPayTotal += daily.regularPay
-                overtimePayTotal += daily.overtimePay
-                transportationTotal += settings.transportationCosts
-                dailySpendingTotal += settings.dailySpending
-            }
+            val daily = computeDailyPay(hours, settings.hourlyRate, settings.overtimeEnabled)
+            grossTotal += daily.pay + settings.transportationCosts - settings.dailySpending
+            overtimeHoursTotal += daily.overtimeHours
+            regularPayTotal += daily.regularPay
+            overtimePayTotal += daily.overtimePay
+            transportationTotal += settings.transportationCosts
+            dailySpendingTotal += settings.dailySpending
             totalHours += hours
-            if (entry.date > lastDate) lastDate = entry.date
         }
 
-        val settingsForTax = settingsForDate(lastDate, getForDateOrBefore, getEarliest)
-            ?: return MonthSummary(month = monthStr, hasData = true, hasSettings = false, totalHours = round2(totalHours))
-
-        val incomeTax = max(0.0, grossIncomeTax(grossTotal) - settingsForTax.creditPoints * CREDIT_POINT_VALUE)
+        val incomeTax = max(0.0, grossIncomeTax(grossTotal) - settings.creditPoints * CREDIT_POINT_VALUE)
         val niHealth = niHealthTax(grossTotal)
-        val pension = grossTotal * (settingsForTax.pensionPct / 100.0)
+        val pension = grossTotal * (settings.pensionPct / 100.0)
         val net = grossTotal - incomeTax - niHealth - pension
         // Savings is a set-aside-from-net *target*, not a payroll deduction —
         // it never changes what "net income" means anywhere else in the app
         // (Home screen, widget). "Left to spend" is the only new figure that
         // actually subtracts it.
-        val savings = net * (settingsForTax.savingsPct / 100.0)
+        val savings = net * (settings.savingsPct / 100.0)
         val leftToSpend = net - savings
 
         return MonthSummary(
@@ -253,14 +239,14 @@ object PayCalculator {
             incomeTax = round2(incomeTax),
             niHealth = round2(niHealth),
             pension = round2(pension),
-            pensionPct = settingsForTax.pensionPct,
+            pensionPct = settings.pensionPct,
             net = round2(net),
             savings = round2(savings),
-            savingsPct = settingsForTax.savingsPct,
+            savingsPct = settings.savingsPct,
             leftToSpend = round2(leftToSpend),
-            creditPoints = settingsForTax.creditPoints,
-            hourlyRate = settingsForTax.hourlyRate,
-            overtimeEnabled = settingsForTax.overtimeEnabled,
+            creditPoints = settings.creditPoints,
+            hourlyRate = settings.hourlyRate,
+            overtimeEnabled = settings.overtimeEnabled,
         )
     }
 
@@ -314,12 +300,11 @@ object PayCalculator {
      * (every date < [today]) or fully logged naturally has no synthetic
      * days added, so it comes back identical to [computeMonthSummary].
      */
-    suspend fun computeProjectedMonthSummary(
+    fun computeProjectedMonthSummary(
         monthStr: String,
         entries: List<LogEntry>,
         today: String,
-        getForDateOrBefore: suspend (String) -> PaySettings?,
-        getEarliest: suspend () -> PaySettings?,
+        settings: PaySettings?,
     ): MonthSummary {
         val loggedHours = entries.mapNotNull { it.hours }
         val avgHours = if (loggedHours.isNotEmpty()) loggedHours.sum() / loggedHours.size else null
@@ -335,6 +320,6 @@ object PayCalculator {
             } else null
         }
 
-        return computeMonthSummary(monthStr, entries + syntheticEntries, getForDateOrBefore, getEarliest)
+        return computeMonthSummary(monthStr, entries + syntheticEntries, settings)
     }
 }

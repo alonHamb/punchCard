@@ -4,15 +4,14 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 
 /**
- * Pay/tax settings, kept as an append-only, effective-dated history —
- * never overwritten in place. This is what makes "changing my rate today
- * doesn't rewrite last month's numbers" work: every calculation looks up
- * whichever row was in effect on the date being calculated, not just the
- * latest one.
+ * Pay/tax settings — a single global row, always applied to every entry
+ * regardless of date. Saving new settings overwrites this row outright;
+ * there is no history, so a rate change also reshapes past months'
+ * numbers, not just future ones.
  */
 @Entity(tableName = "pay_settings")
 data class PaySettings(
-    @PrimaryKey val effectiveDate: String,   // "YYYY-MM-DD" — applies from this date onward
+    @PrimaryKey val id: Int = 0,             // fixed singleton row
     val hourlyRate: Double,                  // gross NIS per hour
     val creditPoints: Double,                // Israeli tax credit points (e.g. 2.25)
     val pensionPct: Double,                  // pension deduction, e.g. 6.0 for 6%
