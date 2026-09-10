@@ -2,6 +2,8 @@ package com.punchcard.app.logic
 
 import com.punchcard.app.data.LogEntry
 import com.punchcard.app.data.PaySettings
+import java.time.DayOfWeek
+import java.time.LocalDate
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.round
@@ -62,6 +64,7 @@ object PayCalculator {
     const val OVERTIME_RATE_TIER1 = 1.25
     const val OVERTIME_RATE_TIER2 = 1.50  // the 11th hour of a day onward
 
+
     private fun round2(n: Double): Double = round(n * 100.0) / 100.0
 
     private fun toMinutes(hhmm: String): Int {
@@ -102,7 +105,7 @@ object PayCalculator {
      * as separate line items). When [overtimeEnabled] is false, or
      * [hours] doesn't exceed [REGULAR_DAILY_HOURS], overtimePay is 0.
      */
-    fun computeDailyPay(hours: Double, hourlyRate: Double, overtimeEnabled: Boolean): DailyPay {
+    fun computeDailyPay(hours: Double, hourlyRate: Double, overtimeEnabled: Boolean,): DailyPay {
         if (!overtimeEnabled || hours <= REGULAR_DAILY_HOURS) {
             val pay = round2(hours * hourlyRate)
             return DailyPay(regularHours = hours, overtimeHours = 0.0, regularPay = pay, overtimePay = 0.0, pay = pay)
@@ -164,6 +167,8 @@ object PayCalculator {
         val overtimeHours: Double = 0.0,
         val regularPay: Double = 0.0,
         val overtimePay: Double = 0.0,
+        val transportationCosts: Double = 0.0, // per-day reimbursement, summed across days worked (already included in gross)
+        val dailySpending: Double = 0.0, // per-day spending constant, summed across days worked (already deducted from gross)
         val gross: Double = 0.0,
         val incomeTax: Double = 0.0,
         val niHealth: Double = 0.0,
@@ -201,19 +206,23 @@ object PayCalculator {
         var overtimeHoursTotal = 0.0
         var regularPayTotal = 0.0
         var overtimePayTotal = 0.0
+        var transportationTotal = 0.0
+        var dailySpendingTotal = 0.0
         var lastDate = entries[0].date
-        for (e in entries) {
-            val hours = e.hours ?: continue
-            val settings = settingsForDate(e.date, getForDateOrBefore, getEarliest)
+        for (entry in entries) {
+            val hours = entry.hours ?: continue
+            val settings = settingsForDate(entry.date, getForDateOrBefore, getEarliest)
             if (settings != null) {
                 val daily = computeDailyPay(hours, settings.hourlyRate, settings.overtimeEnabled)
-                grossTotal += daily.pay
+                grossTotal += daily.pay + settings.transportationCosts - settings.dailySpending
                 overtimeHoursTotal += daily.overtimeHours
                 regularPayTotal += daily.regularPay
                 overtimePayTotal += daily.overtimePay
+                transportationTotal += settings.transportationCosts
+                dailySpendingTotal += settings.dailySpending
             }
             totalHours += hours
-            if (e.date > lastDate) lastDate = e.date
+            if (entry.date > lastDate) lastDate = entry.date
         }
 
         val settingsForTax = settingsForDate(lastDate, getForDateOrBefore, getEarliest)
@@ -238,6 +247,8 @@ object PayCalculator {
             overtimeHours = round2(overtimeHoursTotal),
             regularPay = round2(regularPayTotal),
             overtimePay = round2(overtimePayTotal),
+            transportationCosts = round2(transportationTotal),
+            dailySpending = round2(dailySpendingTotal),
             gross = round2(grossTotal),
             incomeTax = round2(incomeTax),
             niHealth = round2(niHealth),
@@ -266,13 +277,37 @@ object PayCalculator {
         return d == daysInMonth(y, m)
     }
 
+    // Default assumed hours for a synthetic (unlogged) workday, used only
+    // when nothing's been logged yet this month to average from. Thursday
+    // is a shorter day; every other working day (Sun-Wed) defaults to the
+    // longer figure. Neither includes BREAK_WINDOWS — those are already
+    // baked into computeHours for real, logged shifts.
+    const val DEFAULT_THURSDAY_HOURS = 7.5
+    const val DEFAULT_WORKDAY_HOURS = 8.5
+
+    private fun dayOfWeek(date: String): DayOfWeek {
+        val parts = date.split("-").map { it.toInt() }
+        return LocalDate.of(parts[0], parts[1], parts[2]).dayOfWeek
+    }
+
+    /** True if [date] is a Friday or Saturday — Israel's weekend, and not a working day. */
+    fun isWeekend(date: String): Boolean {
+        val dow = dayOfWeek(date)
+        return dow == DayOfWeek.FRIDAY || dow == DayOfWeek.SATURDAY
+    }
+
+    private fun defaultHoursFor(date: String): Double =
+        if (dayOfWeek(date) == DayOfWeek.THURSDAY) DEFAULT_THURSDAY_HOURS else DEFAULT_WORKDAY_HOURS
+
     /**
      * Same as [computeMonthSummary], but for every day in [monthStr] that
-     * hasn't been logged yet, isn't in the past (date >= [today]), and
-     * isn't an Israeli statutory holiday ([IsraeliHolidays.isHoliday] —
-     * work holidays, not school holidays, since those aren't days off
-     * work), assumes a projected day of [entries]'s average logged
-     * hours-per-day (or 8.0 if nothing's been logged yet this month) and
+     * hasn't been logged yet, isn't in the past (date >= [today]), isn't
+     * a weekend ([isWeekend] — Friday/Saturday), and isn't an Israeli
+     * statutory holiday ([IsraeliHolidays.isHoliday] — work holidays, not
+     * school holidays, since those aren't days off work), assumes a
+     * projected day of [entries]'s average logged hours-per-day (or, if
+     * nothing's been logged yet this month, [DEFAULT_THURSDAY_HOURS] on
+     * Thursdays and [DEFAULT_WORKDAY_HOURS] on other working days) and
      * folds those synthetic days in alongside the real ones. This is a
      * "if I keep up this pace, here's roughly what the month ends at"
      * projection, not a recorded fact — a month already fully in the past
@@ -287,7 +322,7 @@ object PayCalculator {
         getEarliest: suspend () -> PaySettings?,
     ): MonthSummary {
         val loggedHours = entries.mapNotNull { it.hours }
-        val avgHours = if (loggedHours.isNotEmpty()) loggedHours.sum() / loggedHours.size else 8.0
+        val avgHours = if (loggedHours.isNotEmpty()) loggedHours.sum() / loggedHours.size else null
 
         val loggedDates = entries.map { it.date }.toSet()
         val (year, month) = monthStr.split("-").map { it.toInt() }
@@ -295,8 +330,8 @@ object PayCalculator {
 
         val syntheticEntries = (1..lastDay).mapNotNull { day ->
             val date = "%04d-%02d-%02d".format(year, month, day)
-            if (date >= today && date !in loggedDates && !IsraeliHolidays.isHoliday(date)) {
-                LogEntry(date = date, hours = avgHours)
+            if (date >= today && date !in loggedDates && !isWeekend(date) && !IsraeliHolidays.isHoliday(date)) {
+                LogEntry(date = date, hours = avgHours ?: defaultHoursFor(date))
             } else null
         }
 

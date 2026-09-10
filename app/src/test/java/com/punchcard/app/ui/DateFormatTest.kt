@@ -21,13 +21,4 @@ class DateFormatTest {
         assertEquals("not-a-date", formatDateDisplay("not-a-date"))
         assertEquals("2026-08", formatDateDisplay("2026-08")) // missing day
     }
-
-    @Test
-    fun `round trips through normalizeDate back to the same ISO string`() {
-        // DateFormat.formatDateDisplay and ManageScreen's normalizeDate
-        // are inverses of each other — a value shown on screen and typed
-        // back in must resolve to the exact same stored date.
-        val iso = "2026-08-17"
-        assertEquals(iso, normalizeDate(formatDateDisplay(iso)))
-    }
 }

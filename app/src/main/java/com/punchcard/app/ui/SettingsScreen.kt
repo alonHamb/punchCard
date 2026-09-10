@@ -3,7 +3,6 @@ package com.punchcard.app.ui
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -13,10 +12,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -52,6 +49,8 @@ fun SettingsScreen(viewModel: MainViewModel, onClose: () -> Unit) {
     val paySettings by viewModel.paySettings.collectAsState()
     val folderName by viewModel.folderName.collectAsState()
 
+    var transportationCosts by remember { mutableStateOf("0") }
+    var dailySpending by remember { mutableStateOf("0") }
     var hourlyRate by remember { mutableStateOf("") }
     var creditPoints by remember { mutableStateOf("") }
     var pensionPct by remember { mutableStateOf("6") }
@@ -64,6 +63,8 @@ fun SettingsScreen(viewModel: MainViewModel, onClose: () -> Unit) {
 
     LaunchedEffect(paySettings) {
         if (!prefilled && paySettings != null) {
+            transportationCosts = paySettings!!.transportationCosts.toString()
+            dailySpending = paySettings!!.dailySpending.toString()
             hourlyRate = paySettings!!.hourlyRate.toString()
             creditPoints = paySettings!!.creditPoints.toString()
             pensionPct = paySettings!!.pensionPct.toString()
@@ -87,9 +88,9 @@ fun SettingsScreen(viewModel: MainViewModel, onClose: () -> Unit) {
 
     Column(
         modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 24.dp),
+	        .fillMaxSize()
+	        .verticalScroll(rememberScrollState())
+	        .padding(horizontal = 20.dp, vertical = 24.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onClose) {
@@ -104,12 +105,28 @@ fun SettingsScreen(viewModel: MainViewModel, onClose: () -> Unit) {
             Text("Pay & tax settings", color = Color(0xFF0F172A), fontWeight = FontWeight.Bold, fontSize = 16.sp)
             Spacer(Modifier.height(6.dp))
             Text(
-                "Used to estimate net income (Israel, salaried employee): income tax, National Insurance + health tax, and pension are calculated automatically. Changing these only affects today onward — past months keep using the settings active at the time.",
+                "Used to estimate net income: income tax, National Insurance + health tax, and pension are calculated automatically.",
                 color = Color(0xFF64748B),
                 fontSize = 12.sp,
             )
             Spacer(Modifier.height(16.dp))
             LabeledField("Hourly rate (₪)", hourlyRate, { hourlyRate = it }, KeyboardType.Decimal)
+            Spacer(Modifier.height(16.dp))
+            LabeledField("Transportation cost per day (₪)", transportationCosts, { transportationCosts = it }, KeyboardType.Decimal)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Added to gross pay for every day you log hours. Leave at 0 if your employer doesn't reimburse transportation.",
+                color = Color(0xFF94A3B8),
+                fontSize = 11.sp,
+            )
+            Spacer(Modifier.height(12.dp))
+            LabeledField("Daily spending (₪)", dailySpending, { dailySpending = it }, KeyboardType.Decimal)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Subtracted from gross pay for every day you log hours — a constant daily expense (e.g. lunch, parking). Leave at 0 to skip.",
+                color = Color(0xFF94A3B8),
+                fontSize = 11.sp,
+            )
             Spacer(Modifier.height(12.dp))
             LabeledField("Tax credit points", creditPoints, { creditPoints = it }, KeyboardType.Decimal)
             Spacer(Modifier.height(12.dp))
@@ -118,7 +135,7 @@ fun SettingsScreen(viewModel: MainViewModel, onClose: () -> Unit) {
             LabeledField("Savings target (% of net income)", savingsPct, { savingsPct = it }, KeyboardType.Decimal)
             Spacer(Modifier.height(4.dp))
             Text(
-                "Doesn't change net income — just splits it into \"Savings\" and \"Left to spend\" on the Home screen, as a target for what to set aside. Leave at 0 to turn this off.",
+                "Doesn't change net income — just splits it into \"Savings\" and \"Left to spend\".",
                 color = Color(0xFF94A3B8),
                 fontSize = 11.sp,
             )
@@ -149,15 +166,19 @@ fun SettingsScreen(viewModel: MainViewModel, onClose: () -> Unit) {
                     val points = creditPoints.toDoubleOrNull()
                     val pension = pensionPct.toDoubleOrNull()
                     val savings = savingsPct.toDoubleOrNull()
+                    val transportation = transportationCosts.toDoubleOrNull()
+                    val spending = dailySpending.toDoubleOrNull()
                     saveMessage = when {
                         rate == null || !rate.isFinite() || rate <= 0 -> "Enter a valid hourly rate."
+                        transportation == null || !transportation.isFinite() || transportation < 0 -> "Enter a valid transportation cost."
+                        spending == null || !spending.isFinite() || spending < 0 -> "Enter a valid daily spending amount."
                         points == null || !points.isFinite() || points < 0 -> "Enter valid credit points."
                         pension == null || !pension.isFinite() || pension < 0 || pension >= 100 ->
                             "Enter a valid pension % (0–99)."
                         savings == null || !savings.isFinite() || savings < 0 || savings >= 100 ->
                             "Enter a valid savings % (0–99)."
                         else -> {
-                            viewModel.savePaySettings(rate, points, pension, overtimeEnabled, savings)
+                            viewModel.savePaySettings(rate, points, pension, overtimeEnabled, savings, transportation, spending)
                             "Saved — applies from today onward."
                         }
                     }
@@ -179,7 +200,7 @@ fun SettingsScreen(viewModel: MainViewModel, onClose: () -> Unit) {
             Text("Backup folder", color = Color(0xFF0F172A), fontWeight = FontWeight.Bold, fontSize = 16.sp)
             Spacer(Modifier.height(6.dp))
             Text(
-                "Choose a folder for the nightly CSV backup — e.g. a folder your Google Drive app keeps synced. This app never connects to the internet itself; it only writes files into this folder, and only between 18:00–06:00 while on wifi (or when you tap \"Back up now\").",
+                "Choose a folder for the nightly CSV backup.",
                 color = Color(0xFF64748B),
                 fontSize = 12.sp,
             )
@@ -206,7 +227,7 @@ fun SettingsScreen(viewModel: MainViewModel, onClose: () -> Unit) {
             Text("Restore from an old backup", color = Color(0xFF0F172A), fontWeight = FontWeight.Bold, fontSize = 16.sp)
             Spacer(Modifier.height(6.dp))
             Text(
-                "If you reinstalled the app (or set it up on a new phone), pick the folder your old backups are in — usually the same folder as above. Any day found there that isn't already in the app gets added back; days already here are never touched or overwritten.",
+                "if the folder already contains PunchCard data it will retrieve it and use it on top of current data.",
                 color = Color(0xFF64748B),
                 fontSize = 12.sp,
             )
@@ -223,12 +244,7 @@ fun SettingsScreen(viewModel: MainViewModel, onClose: () -> Unit) {
                 Spacer(Modifier.height(8.dp))
                 Text(it, color = Color(0xFF64748B), fontSize = 12.sp)
             }
-            Spacer(Modifier.height(10.dp))
-            Text(
-                "Note: this only restores logged days (start/end/hours/money). Your hourly rate and tax settings aren't stored in the backup files, so re-enter those above if needed.",
-                color = Color(0xFF94A3B8),
-                fontSize = 11.sp,
-            )
+
         }
 
         Spacer(Modifier.height(20.dp))
@@ -273,9 +289,9 @@ fun SettingsScreen(viewModel: MainViewModel, onClose: () -> Unit) {
 private fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
     Column(
         modifier = Modifier
-            .fillMaxWidth()
-            .background(Color.White, RoundedCornerShape(20.dp))
-            .padding(18.dp),
+	        .fillMaxWidth()
+	        .background(Color.White, RoundedCornerShape(20.dp))
+	        .padding(18.dp),
         content = content,
     )
 }

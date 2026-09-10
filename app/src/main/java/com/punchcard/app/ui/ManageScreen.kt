@@ -1,5 +1,8 @@
 package com.punchcard.app.ui
 
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
+import android.text.format.DateFormat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -18,11 +21,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -34,6 +38,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,8 +48,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -54,59 +60,13 @@ import com.punchcard.app.ui.theme.BrandDanger
 import com.punchcard.app.ui.theme.BrandTextOnCard
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 import kotlin.math.round
 
-private val TIME_REGEX = Regex("""^([01]\d|2[0-3]):[0-5]\d$""")
-
-/**
- * Accepts a time typed either as "HH:mm" or as plain digits ("0900",
- * "900") — the numeric keypad Android shows for a Number-type field has
- * no ":" key at all, so requiring the colon made this field impossible
- * to fill in on-device. Digit-only input is treated as HHmm (3 digits
- * are left-padded, so "900" means 09:00, same as "0900"). Returns the
- * canonical "HH:mm" form, or null if [input] isn't a valid time either way.
- * `internal` (not `private`) purely so DateTimeInputTest can call it directly.
- */
-internal fun normalizeTime(input: String): String? {
-    if (input.contains(":")) {
-        return if (TIME_REGEX.matches(input)) input else null
-    }
-    if (input.isEmpty() || !input.all { it.isDigit() } || input.length !in 3..4) return null
-    val padded = input.padStart(4, '0')
-    val candidate = "${padded.substring(0, 2)}:${padded.substring(2, 4)}"
-    return if (TIME_REGEX.matches(candidate)) candidate else null
-}
-
-/**
- * Parses a date typed in the app's DD/MM/YYYY display convention — with
- * slashes, dashes, or dots, or (since the numeric keypad has no
- * punctuation key at all) as plain "DDMMYYYY" digits — and returns it
- * in the canonical ISO "YYYY-MM-DD" form used for storage everywhere
- * else in the app (see DateFormat.kt), or null if it isn't a valid date.
- * `internal` (not `private`) purely so DateTimeInputTest can call it directly.
- */
-internal fun normalizeDate(input: String): String? {
-    val digitsOnly = input.all { it.isDigit() }
-    val (dd, mm, yyyy) = if (digitsOnly) {
-        if (input.length != 8) return null
-        Triple(input.substring(0, 2), input.substring(2, 4), input.substring(4, 8))
-    } else {
-        val sep = when {
-            input.contains('/') -> '/'
-            input.contains('-') -> '-'
-            input.contains('.') -> '.'
-            else -> return null
-        }
-        val parts = input.split(sep)
-        if (parts.size != 3) return null
-        Triple(parts[0].padStart(2, '0'), parts[1].padStart(2, '0'), parts[2])
-    }
-    if (dd.length != 2 || mm.length != 2 || yyyy.length != 4) return null
-    val candidate = "$yyyy-$mm-$dd"
-    return if (runCatching { LocalDate.parse(candidate) }.isSuccess) candidate else null
-}
+private val TIME_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
 /**
  * Browse any month, edit any day's start/end time, delete a day entirely,
@@ -266,8 +226,9 @@ private fun ManageRow(entry: LogEntry, onClick: () -> Unit) {
 /**
  * One dialog handles both editing an existing day and adding a new one.
  * For edits [dateEditable] is false (the date is fixed to that row) and a
- * Delete button is shown; for "add" the date is a free-text field and
- * there's nothing to delete yet.
+ * Delete button is shown; for "add" the date is picked via a native
+ * calendar. Start/end times are picked via a native clock and can be
+ * cleared back to "not logged" with the × next to a filled-in field.
  */
 @Composable
 private fun EntryEditDialog(
@@ -280,17 +241,52 @@ private fun EntryEditDialog(
     onDelete: (() -> Unit)?,
     onCheckExisting: suspend (String) -> LogEntry?,
 ) {
-    var dateText by remember { mutableStateOf(formatDateDisplay(date)) }
-    var startText by remember { mutableStateOf(initialStart ?: "") }
-    var endText by remember { mutableStateOf(initialEnd ?: "") }
-    var error by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
+    val is24Hour = remember { DateFormat.is24HourFormat(context) }
+
+    var pickedDate by remember { mutableStateOf(LocalDate.parse(date)) }
+    var startTime by remember { mutableStateOf(initialStart?.let { LocalTime.parse(it, TIME_FORMAT) }) }
+    var endTime by remember { mutableStateOf(initialEnd?.let { LocalTime.parse(it, TIME_FORMAT) }) }
     var confirmDelete by remember { mutableStateOf(false) }
     var checkingConflict by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showStartPicker by remember { mutableStateOf(false) }
+    var showEndPicker by remember { mutableStateOf(false) }
     // Set only when Save finds an existing entry for a NEW date being
     // added — holds the entry that would get overwritten plus the
     // already-validated values waiting on the user's confirmation.
     var conflict by remember { mutableStateOf<Pair<LogEntry, Triple<String, String?, String?>>?>(null) }
     val scope = rememberCoroutineScope()
+
+    LaunchedEffect(showDatePicker) {
+        if (showDatePicker) {
+            DatePickerDialog(
+                context,
+                { _, year, month, day -> pickedDate = LocalDate.of(year, month + 1, day) },
+                pickedDate.year, pickedDate.monthValue - 1, pickedDate.dayOfMonth,
+            ).apply { setOnDismissListener { showDatePicker = false } }.show()
+        }
+    }
+    LaunchedEffect(showStartPicker) {
+        if (showStartPicker) {
+            val seed = startTime ?: LocalTime.of(9, 0)
+            TimePickerDialog(
+                context,
+                { _, hour, minute -> startTime = LocalTime.of(hour, minute) },
+                seed.hour, seed.minute, is24Hour,
+            ).apply { setOnDismissListener { showStartPicker = false } }.show()
+        }
+    }
+    LaunchedEffect(showEndPicker) {
+        if (showEndPicker) {
+            val seed = endTime ?: LocalTime.of(17, 0)
+            TimePickerDialog(
+                context,
+                { _, hour, minute -> endTime = LocalTime.of(hour, minute) },
+                seed.hour, seed.minute, is24Hour,
+            ).apply { setOnDismissListener { showEndPicker = false } }.show()
+        }
+    }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -314,10 +310,15 @@ private fun EntryEditDialog(
                 Spacer(Modifier.height(12.dp))
 
                 if (dateEditable) {
-                    DialogField("Date — e.g. 17/08/2026 or just 17082026", dateText, { dateText = it }, KeyboardType.Number)
+                    PickerField(
+                        label = "Date",
+                        value = formatDateDisplay(pickedDate.toString()),
+                        icon = Icons.Filled.DateRange,
+                        onClick = { showDatePicker = true },
+                    )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "Any date works — last week, last month, any day you forgot to log. No slashes needed, just type the 8 digits (DDMMYYYY).",
+                        "Any date works — last week, last month, any day you forgot to log.",
                         color = Color(0xFF94A3B8),
                         fontSize = 11.sp,
                     )
@@ -327,60 +328,35 @@ private fun EntryEditDialog(
                     Spacer(Modifier.height(12.dp))
                 }
 
-                DialogField("Start time — e.g. 09:00 or just 0900, blank to clear", startText, { startText = it }, KeyboardType.Number)
+                TimeField(label = "Start time", time = startTime, onPick = { showStartPicker = true }, onClear = { startTime = null })
                 Spacer(Modifier.height(12.dp))
-                DialogField("End time — e.g. 17:30 or just 1730, blank to clear", endText, { endText = it }, KeyboardType.Number)
-
-                error?.let {
-                    Spacer(Modifier.height(10.dp))
-                    Text(it, color = BrandDanger, fontSize = 12.sp)
-                }
+                TimeField(label = "End time", time = endTime, onPick = { showEndPicker = true }, onClear = { endTime = null })
 
                 Spacer(Modifier.height(18.dp))
                 Button(
                     onClick = {
-                        // Accept the field either with its normal separator
-                        // (":" or "-") or as plain digits — the numeric
-                        // keypad Android shows for these fields has no ":"
-                        // or "-" key at all, so digits-only has to work.
-                        val normalizedDate = normalizeDate(dateText.trim())
-                        val rawStart = startText.trim()
-                        val rawEnd = endText.trim()
-                        val normalizedStart = if (rawStart.isEmpty()) null else normalizeTime(rawStart)
-                        val normalizedEnd = if (rawEnd.isEmpty()) null else normalizeTime(rawEnd)
-
-                        val validDate = normalizedDate != null
-                        val validStart = rawStart.isEmpty() || normalizedStart != null
-                        val validEnd = rawEnd.isEmpty() || normalizedEnd != null
-
-                        error = when {
-                            !validDate -> "Enter a valid date — e.g. 17/08/2026 or just 17082026."
-                            !validStart -> "Start time must be a valid time — e.g. 09:00 or just 0900."
-                            !validEnd -> "End time must be a valid time — e.g. 17:30 or just 1730."
-                            else -> null
-                        }
-                        if (error == null) {
-                            if (dateEditable) {
-                                // "Add day" mode: the date is free-text, so
-                                // it might collide with a day that's
-                                // already logged — check first instead of
-                                // silently overwriting it. ("Edit day"
-                                // mode never hits this: its date is fixed
-                                // to the row being edited, so there's
-                                // nothing new to collide with.)
-                                checkingConflict = true
-                                scope.launch {
-                                    val existing = onCheckExisting(normalizedDate!!)
-                                    checkingConflict = false
-                                    if (existing == null) {
-                                        onSave(normalizedDate, normalizedStart, normalizedEnd)
-                                    } else {
-                                        conflict = existing to Triple(normalizedDate, normalizedStart, normalizedEnd)
-                                    }
+                        val normalizedDate = pickedDate.toString()
+                        val normalizedStart = startTime?.format(TIME_FORMAT)
+                        val normalizedEnd = endTime?.format(TIME_FORMAT)
+                        if (dateEditable) {
+                            // "Add day" mode: the picked date might collide
+                            // with a day that's already logged — check
+                            // first instead of silently overwriting it.
+                            // ("Edit day" mode never hits this: its date is
+                            // fixed to the row being edited, so there's
+                            // nothing new to collide with.)
+                            checkingConflict = true
+                            scope.launch {
+                                val existing = onCheckExisting(normalizedDate)
+                                checkingConflict = false
+                                if (existing == null) {
+                                    onSave(normalizedDate, normalizedStart, normalizedEnd)
+                                } else {
+                                    conflict = existing to Triple(normalizedDate, normalizedStart, normalizedEnd)
                                 }
-                            } else {
-                                onSave(normalizedDate!!, normalizedStart, normalizedEnd)
                             }
+                        } else {
+                            onSave(normalizedDate, normalizedStart, normalizedEnd)
                         }
                     },
                     enabled = !checkingConflict,
@@ -465,24 +441,63 @@ private fun EntryEditDialog(
 }
 
 @Composable
-private fun DialogField(label: String, value: String, onChange: (String) -> Unit, keyboardType: KeyboardType) {
+private fun fieldColors(dimText: Boolean = false) = OutlinedTextFieldDefaults.colors(
+    focusedContainerColor = Color.White,
+    unfocusedContainerColor = Color(0xFFF8FAFC),
+    focusedTextColor = if (dimText) Color(0xFF94A3B8) else Color(0xFF0F172A),
+    unfocusedTextColor = if (dimText) Color(0xFF94A3B8) else Color(0xFF0F172A),
+    cursorColor = BrandAccent,
+)
+
+/** A labeled, read-only field that opens a native picker dialog when tapped — used for [date]. */
+@Composable
+private fun PickerField(label: String, value: String, icon: ImageVector, onClick: () -> Unit) {
     Column {
         Text(label, color = Color(0xFF64748B), fontSize = 12.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(4.dp))
-        OutlinedTextField(
-            value = value,
-            onValueChange = onChange,
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = Color.White,
-                unfocusedContainerColor = Color(0xFFF8FAFC),
-                focusedTextColor = Color(0xFF0F172A),
-                unfocusedTextColor = Color(0xFF0F172A),
-                cursorColor = BrandAccent,
-            ),
-            modifier = Modifier.fillMaxWidth(),
-        )
+        Box {
+            OutlinedTextField(
+                value = value,
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = { Icon(icon, contentDescription = null, tint = BrandAccent) },
+                colors = fieldColors(),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Box(modifier = Modifier.matchParentSize().clickable(onClick = onClick))
+        }
+    }
+}
+
+/**
+ * A [PickerField] for an optional clock time — shows "Not logged" in muted
+ * text when [time] is null, and a × next to the field to clear it back to
+ * null once a time has been picked.
+ */
+@Composable
+private fun TimeField(label: String, time: LocalTime?, onPick: () -> Unit, onClear: () -> Unit) {
+    Column {
+        Text(label, color = Color(0xFF64748B), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(4.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(modifier = Modifier.weight(1f)) {
+                OutlinedTextField(
+                    value = time?.format(TIME_FORMAT) ?: "Not logged",
+                    onValueChange = {},
+                    readOnly = true,
+                    trailingIcon = { Icon(Icons.Filled.AccessTime, contentDescription = null, tint = BrandAccent) },
+                    colors = fieldColors(dimText = time == null),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Box(modifier = Modifier.matchParentSize().clickable(onClick = onPick))
+            }
+            if (time != null) {
+                Spacer(Modifier.width(6.dp))
+                IconButton(onClick = onClear, modifier = Modifier.size(36.dp)) {
+                    Icon(Icons.Filled.Close, contentDescription = "Clear $label", tint = Color(0xFF94A3B8))
+                }
+            }
+        }
     }
 }
 

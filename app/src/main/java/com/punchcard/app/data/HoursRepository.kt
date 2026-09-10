@@ -33,10 +33,12 @@ class HoursRepository(
         pensionPct: Double,
         overtimeEnabled: Boolean,
         savingsPct: Double,
+        transportationCosts: Double,
+        dailySpending: Double,
         effectiveDate: String,
     ) {
         payDao.insert(
-            PaySettings(effectiveDate, hourlyRate, creditPoints, pensionPct, overtimeEnabled, savingsPct),
+            PaySettings(effectiveDate, hourlyRate, creditPoints, pensionPct, overtimeEnabled, savingsPct, transportationCosts, dailySpending),
         )
     }
 

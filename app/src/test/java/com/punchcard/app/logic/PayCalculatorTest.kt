@@ -108,6 +108,89 @@ class PayCalculatorTest {
     }
 
     @Test
+    fun `transportation cost is added to gross once per day worked`() = runTest {
+        val settings = PaySettings(
+            effectiveDate = "2026-08-01",
+            hourlyRate = 60.0,
+            creditPoints = 2.25,
+            pensionPct = 6.0,
+            transportationCosts = 20.0,
+        )
+        val entries = listOf(
+            LogEntry(date = "2026-08-03", startTime = "09:00", endTime = "17:00", hours = 8.0),
+            LogEntry(date = "2026-08-04", startTime = "09:00", endTime = "17:00", hours = 8.0),
+        )
+        val summary = PayCalculator.computeMonthSummary(
+            monthStr = "2026-08",
+            entries = entries,
+            getForDateOrBefore = { settings },
+            getEarliest = { settings },
+        )
+        // 2 days * 20 = 40 transportation, on top of 16h * 60 = 960 pay.
+        assertEquals(40.0, summary.transportationCosts, 0.001)
+        assertEquals(1000.0, summary.gross, 0.001)
+    }
+
+    @Test
+    fun `zero transportation cost adds nothing to gross`() = runTest {
+        val settings = PaySettings(effectiveDate = "2026-08-01", hourlyRate = 60.0, creditPoints = 2.25, pensionPct = 6.0)
+        val entries = listOf(LogEntry(date = "2026-08-03", startTime = "09:00", endTime = "17:00", hours = 8.0))
+        val summary = PayCalculator.computeMonthSummary(
+            monthStr = "2026-08",
+            entries = entries,
+            getForDateOrBefore = { settings },
+            getEarliest = { settings },
+        )
+        assertEquals(0.0, summary.transportationCosts, 0.001)
+        assertEquals(480.0, summary.gross, 0.001)
+    }
+
+    @Test
+    fun `daily spending is subtracted from gross once per day worked`() = runTest {
+        val settings = PaySettings(
+            effectiveDate = "2026-08-01",
+            hourlyRate = 60.0,
+            creditPoints = 2.25,
+            pensionPct = 6.0,
+            dailySpending = 15.0,
+        )
+        val entries = listOf(
+            LogEntry(date = "2026-08-03", startTime = "09:00", endTime = "17:00", hours = 8.0),
+            LogEntry(date = "2026-08-04", startTime = "09:00", endTime = "17:00", hours = 8.0),
+        )
+        val summary = PayCalculator.computeMonthSummary(
+            monthStr = "2026-08",
+            entries = entries,
+            getForDateOrBefore = { settings },
+            getEarliest = { settings },
+        )
+        // 2 days * 15 = 30 subtracted, from 16h * 60 = 960 pay.
+        assertEquals(30.0, summary.dailySpending, 0.001)
+        assertEquals(930.0, summary.gross, 0.001)
+    }
+
+    @Test
+    fun `transportation and daily spending combine in gross`() = runTest {
+        val settings = PaySettings(
+            effectiveDate = "2026-08-01",
+            hourlyRate = 60.0,
+            creditPoints = 2.25,
+            pensionPct = 6.0,
+            transportationCosts = 20.0,
+            dailySpending = 15.0,
+        )
+        val entries = listOf(LogEntry(date = "2026-08-03", startTime = "09:00", endTime = "17:00", hours = 8.0))
+        val summary = PayCalculator.computeMonthSummary(
+            monthStr = "2026-08",
+            entries = entries,
+            getForDateOrBefore = { settings },
+            getEarliest = { settings },
+        )
+        // 480 (pay) + 20 (transportation) - 15 (daily spending) = 485.
+        assertEquals(485.0, summary.gross, 0.001)
+    }
+
+    @Test
     fun `no entries yields hasData false`() = runTest {
         val summary = PayCalculator.computeMonthSummary(
             monthStr = "2026-09",
@@ -128,22 +211,22 @@ class PayCalculatorTest {
 
     @Test
     fun `first two overtime hours pay 125 percent`() {
-        // 9 worked hours: 8 regular + 1 hour of tier-1 overtime.
+        // 9 worked hours: 8.6 regular + 0.4 hour of tier-1 overtime.
         val daily = PayCalculator.computeDailyPay(hours = 9.0, hourlyRate = 60.0, overtimeEnabled = true)
-        assertEquals(8.0, daily.regularHours, 0.001)
-        assertEquals(1.0, daily.overtimeHours, 0.001)
-        // 8*60 + 1*60*1.25 = 480 + 75 = 555
-        assertEquals(555.0, daily.pay, 0.001)
+        assertEquals(8.6, daily.regularHours, 0.001)
+        assertEquals(0.4, daily.overtimeHours, 0.001)
+        // 8.6*60 + 0.4*60*1.25 = 516 + 30 = 546
+        assertEquals(546.0, daily.pay, 0.001)
     }
 
     @Test
     fun `hours past ten pay 150 percent`() {
-        // 11 worked hours: 8 regular + 2 tier-1 (125%) + 1 tier-2 (150%).
+        // 11 worked hours: 8.6 regular + 2 tier-1 (125%) + 0.4 tier-2 (150%).
         val daily = PayCalculator.computeDailyPay(hours = 11.0, hourlyRate = 60.0, overtimeEnabled = true)
-        assertEquals(8.0, daily.regularHours, 0.001)
-        assertEquals(3.0, daily.overtimeHours, 0.001)
-        // 8*60 + 2*60*1.25 + 1*60*1.5 = 480 + 150 + 90 = 720
-        assertEquals(720.0, daily.pay, 0.001)
+        assertEquals(8.6, daily.regularHours, 0.001)
+        assertEquals(2.4, daily.overtimeHours, 0.001)
+        // 8.6*60 + 2*60*1.25 + 0.4*60*1.5 = 516 + 150 + 36 = 702
+        assertEquals(702.0, daily.pay, 0.001)
     }
 
     @Test
@@ -162,7 +245,8 @@ class PayCalculatorTest {
             pensionPct = 6.0,
             overtimeEnabled = true,
         )
-        // One regular 8h day, one 10h day (8 regular + 2 tier-1 overtime).
+        // One regular 8h day (under the 8.6h threshold), one 10h day
+        // (8.6 regular + 1.4 tier-1 overtime).
         val entries = listOf(
             LogEntry(date = "2026-08-03", startTime = "09:00", endTime = "17:00", hours = 8.0),
             LogEntry(date = "2026-08-04", startTime = "09:00", endTime = "19:00", hours = 10.0),
@@ -174,13 +258,13 @@ class PayCalculatorTest {
             getEarliest = { settings },
         )
         assertEquals(18.0, summary.totalHours, 0.001)
-        assertEquals(2.0, summary.overtimeHours, 0.001)
-        // Day 1: 480. Day 2: 8*60 + 2*60*1.25 = 480 + 150 = 630. Total 1110.
-        assertEquals(1110.0, summary.gross, 0.001)
-        // Regular pay: 8*60 (day 1) + 8*60 (day 2's regular portion) = 960.
-        assertEquals(960.0, summary.regularPay, 0.001)
-        // Overtime pay: day 2's 2 tier-1 hours at 125% = 2*60*1.25 = 150.
-        assertEquals(150.0, summary.overtimePay, 0.001)
+        assertEquals(1.4, summary.overtimeHours, 0.001)
+        // Day 1: 480. Day 2: 8.6*60 + 1.4*60*1.25 = 516 + 105 = 621. Total 1101.
+        assertEquals(1101.0, summary.gross, 0.001)
+        // Regular pay: 8*60 (day 1) + 8.6*60 (day 2's regular portion) = 480 + 516 = 996.
+        assertEquals(996.0, summary.regularPay, 0.001)
+        // Overtime pay: day 2's 1.4 tier-1 hours at 125% = 1.4*60*1.25 = 105.
+        assertEquals(105.0, summary.overtimePay, 0.001)
         assertEquals(summary.gross, summary.regularPay + summary.overtimePay, 0.001)
     }
 
@@ -264,9 +348,9 @@ class PayCalculatorTest {
     @Test
     fun `exactly ten hours is all tier-1 overtime with no tier-2`() {
         val daily = PayCalculator.computeDailyPay(hours = 10.0, hourlyRate = 60.0, overtimeEnabled = true)
-        assertEquals(2.0, daily.overtimeHours, 0.001)
-        // 8*60 + 2*60*1.25 = 480 + 150 = 630
-        assertEquals(630.0, daily.pay, 0.001)
+        assertEquals(1.4, daily.overtimeHours, 0.001)
+        // 8.6*60 + 1.4*60*1.25 = 516 + 105 = 621
+        assertEquals(621.0, daily.pay, 0.001)
     }
 
     @Test
@@ -301,9 +385,12 @@ class PayCalculatorTest {
     @Test
     fun `projected summary fills unlogged remaining days with the average logged so far`() = runTest {
         val settings = PaySettings(effectiveDate = "2026-08-01", hourlyRate = 60.0, creditPoints = 2.25, pensionPct = 6.0)
-        // Two logged 8h days (avg 8h); August 2026 has 31 days, and none
-        // of them are Israeli holidays, so every day from "today" (08-05)
-        // through 08-31 (27 days) gets a synthetic 8h day added.
+        // Two logged 8h days (avg 8h); August 2026 has 31 days, none of
+        // them are Israeli holidays, and — since there's already logged
+        // data this month — the average (8h) is used for every synthetic
+        // day rather than the Thursday/default fallback. Of 08-05..08-31,
+        // the Fridays (07,14,21,28) and Saturdays (08,15,22,29) are
+        // weekends and skipped, leaving 19 synthetic workdays.
         val entries = listOf(
             LogEntry(date = "2026-08-03", startTime = "09:00", endTime = "17:00", hours = 8.0),
             LogEntry(date = "2026-08-04", startTime = "09:00", endTime = "17:00", hours = 8.0),
@@ -315,8 +402,8 @@ class PayCalculatorTest {
             getForDateOrBefore = { settings },
             getEarliest = { settings },
         )
-        // 2 real days + 27 synthetic days (08-05..08-31) = 29 days * 8h = 232h.
-        assertEquals(232.0, projected.totalHours, 0.001)
+        // 2 real days (16h) + 19 synthetic 8h days (152h) = 168h.
+        assertEquals(168.0, projected.totalHours, 0.001)
     }
 
     @Test
@@ -343,8 +430,13 @@ class PayCalculatorTest {
     @Test
     fun `projected summary skips Israeli work holidays when filling remaining days`() = runTest {
         val settings = PaySettings(effectiveDate = "2026-09-01", hourlyRate = 60.0, creditPoints = 2.25, pensionPct = 6.0)
-        // September 2026 has Rosh Hashana (09-12, 09-13) and Yom Kippur
-        // (09-21) — none of those three days should get a synthetic entry.
+        // September 2026 has Rosh Hashana (09-12 Sat, 09-13 Sun) and Yom
+        // Kippur (09-21 Mon) — none of those three days should get a
+        // synthetic entry. With nothing logged yet, unlogged workdays fall
+        // back to the Thursday/default split: 09-10, 09-17, 09-24 are
+        // Thursdays (7.5h each); 09-14/15/16, 09-20, 09-22/23, 09-27/28/29/30
+        // are other workdays (8.5h each); the remaining days (09-11/12/18/19
+        // /25/26 weekends, plus the 3 holidays above) are skipped.
         val projected = PayCalculator.computeProjectedMonthSummary(
             monthStr = "2026-09",
             entries = emptyList(),
@@ -352,9 +444,56 @@ class PayCalculatorTest {
             getForDateOrBefore = { settings },
             getEarliest = { settings },
         )
-        // 30 days in September, minus 9 already-past days (09-01..09-09),
-        // minus 3 holiday days (09-12, 09-13, 09-21) = 18 synthetic 8h days.
-        assertEquals(144.0, projected.totalHours, 0.001)
+        // 3 Thursdays * 7.5h (22.5h) + 10 other workdays * 8.5h (85h) = 107.5h.
+        assertEquals(107.5, projected.totalHours, 0.001)
+    }
+
+    @Test
+    fun `isWeekend recognizes Friday and Saturday only`() {
+        assertTrue(PayCalculator.isWeekend("2026-08-07")) // Friday
+        assertTrue(PayCalculator.isWeekend("2026-08-08")) // Saturday
+        assertTrue(!PayCalculator.isWeekend("2026-08-09")) // Sunday
+        assertTrue(!PayCalculator.isWeekend("2026-08-06")) // Thursday
+    }
+
+    @Test
+    fun `projected summary adds no synthetic entries on Friday or Saturday`() = runTest {
+        val settings = PaySettings(effectiveDate = "2026-08-01", hourlyRate = 60.0, creditPoints = 2.25, pensionPct = 6.0)
+        // Mark every August day but the Fri/Sat pair (08-07, 08-08) as
+        // already logged (hours = null, so they're excluded from filling
+        // but contribute nothing) — the only dates left eligible for a
+        // synthetic entry are that weekend, and both should stay skipped.
+        val entries = (1..31).filter { it != 7 && it != 8 }.map { day ->
+            LogEntry(date = "2026-08-%02d".format(day))
+        }
+        val projected = PayCalculator.computeProjectedMonthSummary(
+            monthStr = "2026-08",
+            entries = entries,
+            today = "2026-08-01",
+            getForDateOrBefore = { settings },
+            getEarliest = { settings },
+        )
+        assertEquals(0.0, projected.totalHours, 0.001)
+    }
+
+    @Test
+    fun `default unlogged hours are 7_5 on Thursday and 8_5 on other workdays`() = runTest {
+        val settings = PaySettings(effectiveDate = "2026-08-01", hourlyRate = 10.0, creditPoints = 0.0, pensionPct = 0.0)
+        // Mark every August day but one Thursday (08-06) and one Monday
+        // (08-03) as already logged (hours = null), isolating those two
+        // as the only days that get a synthetic (default-hours) entry.
+        val entries = (1..31).filter { it != 3 && it != 6 }.map { day ->
+            LogEntry(date = "2026-08-%02d".format(day))
+        }
+        val projected = PayCalculator.computeProjectedMonthSummary(
+            monthStr = "2026-08",
+            entries = entries,
+            today = "2026-08-01",
+            getForDateOrBefore = { settings },
+            getEarliest = { settings },
+        )
+        // 08-06 (Thu, 7.5h) + 08-03 (Mon, 8.5h) = 16.0h.
+        assertEquals(16.0, projected.totalHours, 0.001)
     }
 
     @Test
