@@ -35,6 +35,9 @@ interface LogEntryDao {
     @Query("SELECT * FROM log_entries WHERE date LIKE :monthPrefix || '%' AND hours IS NOT NULL")
     suspend fun getCompleteForMonth(monthPrefix: String): List<LogEntry>
 
+    @Query("SELECT * FROM log_entries WHERE hours IS NOT NULL")
+    suspend fun getAllComplete(): List<LogEntry>
+
     @Query("DELETE FROM log_entries WHERE date = :date")
     suspend fun delete(date: String)
 }

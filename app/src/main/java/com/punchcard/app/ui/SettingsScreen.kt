@@ -179,7 +179,7 @@ fun SettingsScreen(viewModel: MainViewModel, onClose: () -> Unit) {
                             "Enter a valid savings % (0–99)."
                         else -> {
                             viewModel.savePaySettings(rate, points, pension, overtimeEnabled, savings, transportation, spending)
-                            "Saved — applies from today onward."
+                            "Saved — applies to all months, past and future."
                         }
                     }
                 },

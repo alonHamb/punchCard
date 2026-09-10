@@ -66,7 +66,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         repo.observePendingBackupCount().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     val paySettings: StateFlow<PaySettings?> =
-        repo.observeLatestPaySettings().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+        repo.observePaySettings().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     private val _viewMonth = MutableStateFlow(currentMonthStr())
     val viewMonth: StateFlow<String> = _viewMonth.asStateFlow()
@@ -189,7 +189,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         dailySpending: Double,
     ) {
         viewModelScope.launch {
-            repo.savePaySettings(hourlyRate, creditPoints, pensionPct, overtimeEnabled, savingsPct, transportationCosts, dailySpending, todayLocal())
+            repo.savePaySettings(hourlyRate, creditPoints, pensionPct, overtimeEnabled, savingsPct, transportationCosts, dailySpending)
             loadMonth(_viewMonth.value)
             refreshWidget()
         }

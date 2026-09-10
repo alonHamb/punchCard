@@ -23,10 +23,18 @@ class HoursRepository(
 
     fun observePendingBackupCount(): Flow<Int> = logDao.observePendingBackupCount()
 
-    fun observeLatestPaySettings(): Flow<PaySettings?> = payDao.observeLatest()
+    fun observePaySettings(): Flow<PaySettings?> = payDao.observe()
 
-    suspend fun getLatestPaySettings(): PaySettings? = payDao.getLatest()
+    suspend fun getPaySettings(): PaySettings? = payDao.get()
 
+    /**
+     * Overwrites the single global pay/tax settings row, then retroactively
+     * recomputes every already-logged day's stored [LogEntry.money] against
+     * it — a rate change (or any other settings change) reshapes every
+     * month's numbers, not just days logged from today onward. Any day
+     * whose money actually changes is queued for the next backup so the
+     * correction reaches the CSV too.
+     */
     suspend fun savePaySettings(
         hourlyRate: Double,
         creditPoints: Double,
@@ -35,11 +43,16 @@ class HoursRepository(
         savingsPct: Double,
         transportationCosts: Double,
         dailySpending: Double,
-        effectiveDate: String,
     ) {
-        payDao.insert(
-            PaySettings(effectiveDate, hourlyRate, creditPoints, pensionPct, overtimeEnabled, savingsPct, transportationCosts, dailySpending),
-        )
+        val settings = PaySettings(0, hourlyRate, creditPoints, pensionPct, overtimeEnabled, savingsPct, transportationCosts, dailySpending)
+        payDao.insert(settings)
+        for (entry in logDao.getAllComplete()) {
+            val hours = entry.hours ?: continue
+            val money = PayCalculator.computeMoney(hours, settings.hourlyRate, settings.overtimeEnabled)
+            if (money != entry.money) {
+                logDao.upsert(entry.copy(money = money, backedUp = false, lastUpdated = System.currentTimeMillis()))
+            }
+        }
     }
 
     suspend fun hasStartedToday(date: String): Boolean = logDao.getByDate(date)?.startTime != null
@@ -62,7 +75,7 @@ class HoursRepository(
         val end = entry.endTime
         if (start != null && end != null) {
             val hours = PayCalculator.computeHours(start, end)
-            val settings = PayCalculator.settingsForDate(date, payDao::getForDateOrBefore, payDao::getEarliest)
+            val settings = payDao.get()
             val money = settings?.let { PayCalculator.computeMoney(hours, it.hourlyRate, it.overtimeEnabled) }
             entry = entry.copy(hours = hours, money = money, backedUp = false, lastUpdated = System.currentTimeMillis())
         } else {
@@ -89,7 +102,7 @@ class HoursRepository(
 
     suspend fun getMonthSummary(monthStr: String): PayCalculator.MonthSummary {
         val entries = logDao.getCompleteForMonth(monthStr)
-        return PayCalculator.computeMonthSummary(monthStr, entries, payDao::getForDateOrBefore, payDao::getEarliest)
+        return PayCalculator.computeMonthSummary(monthStr, entries, payDao.get())
     }
 
     /** Same as [getMonthSummary], but with every not-yet-logged day from
@@ -98,7 +111,7 @@ class HoursRepository(
      *  for the month rather than just what's actually been recorded. */
     suspend fun getProjectedMonthSummary(monthStr: String, today: String): PayCalculator.MonthSummary {
         val entries = logDao.getCompleteForMonth(monthStr)
-        return PayCalculator.computeProjectedMonthSummary(monthStr, entries, today, payDao::getForDateOrBefore, payDao::getEarliest)
+        return PayCalculator.computeProjectedMonthSummary(monthStr, entries, today, payDao.get())
     }
 
     suspend fun getPendingBackupEntries(): List<LogEntry> = logDao.getPendingBackup()
@@ -117,7 +130,7 @@ class HoursRepository(
         var entry = LogEntry(date = date, startTime = startTime, endTime = endTime)
         if (startTime != null && endTime != null) {
             val hours = PayCalculator.computeHours(startTime, endTime)
-            val settings = PayCalculator.settingsForDate(date, payDao::getForDateOrBefore, payDao::getEarliest)
+            val settings = payDao.get()
             val money = settings?.let { PayCalculator.computeMoney(hours, it.hourlyRate, it.overtimeEnabled) }
             entry = entry.copy(hours = hours, money = money, backedUp = false, lastUpdated = System.currentTimeMillis())
         } else {

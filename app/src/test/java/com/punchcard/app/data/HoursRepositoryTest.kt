@@ -37,21 +37,16 @@ class HoursRepositoryTest {
         }
         override suspend fun getCompleteForMonth(monthPrefix: String): List<LogEntry> =
             table.values.filter { it.date.startsWith(monthPrefix) && it.hours != null }
+        override suspend fun getAllComplete(): List<LogEntry> = table.values.filter { it.hours != null }
         override suspend fun delete(date: String) { table.remove(date) }
     }
 
     private class FakePaySettingsDao : PaySettingsDao {
-        val rows = mutableListOf<PaySettings>()
+        var current: PaySettings? = null
 
-        override suspend fun insert(settings: PaySettings) {
-            rows.removeAll { it.effectiveDate == settings.effectiveDate }
-            rows.add(settings)
-        }
-        override fun observeLatest(): Flow<PaySettings?> = flowOf(rows.maxByOrNull { it.effectiveDate })
-        override suspend fun getLatest(): PaySettings? = rows.maxByOrNull { it.effectiveDate }
-        override suspend fun getForDateOrBefore(date: String): PaySettings? =
-            rows.filter { it.effectiveDate <= date }.maxByOrNull { it.effectiveDate }
-        override suspend fun getEarliest(): PaySettings? = rows.minByOrNull { it.effectiveDate }
+        override suspend fun insert(settings: PaySettings) { current = settings }
+        override fun observe(): Flow<PaySettings?> = flowOf(current)
+        override suspend fun get(): PaySettings? = current
     }
 
     private lateinit var logDao: FakeLogEntryDao
@@ -63,7 +58,7 @@ class HoursRepositoryTest {
         logDao = FakeLogEntryDao()
         payDao = FakePaySettingsDao()
         repo = HoursRepository(logDao, payDao)
-        payDao.rows.add(PaySettings(effectiveDate = "2026-01-01", hourlyRate = 60.0, creditPoints = 2.25, pensionPct = 6.0))
+        payDao.current = PaySettings(hourlyRate = 60.0, creditPoints = 2.25, pensionPct = 6.0)
     }
 
     @Test
@@ -190,21 +185,45 @@ class HoursRepositoryTest {
     }
 
     @Test
-    fun `getMonthSummary uses the settings in effect on each entry's own date`() = runTest {
-        // A mid-month rate change must apply only to entries on/after it.
-        payDao.rows.add(PaySettings(effectiveDate = "2026-08-15", hourlyRate = 80.0, creditPoints = 2.25, pensionPct = 6.0))
-        repo.setEntryTimes("2026-08-03", "09:00", "17:00") // before the raise: 7h * 60 = 420
-        repo.setEntryTimes("2026-08-20", "09:00", "17:00") // after the raise: 7h * 80 = 560
+    fun `getMonthSummary applies the current global settings to every entry regardless of date`() = runTest {
+        repo.setEntryTimes("2026-08-03", "09:00", "17:00") // 7h
+        repo.setEntryTimes("2026-08-20", "09:00", "17:00") // 7h
 
-        val summary = repo.getMonthSummary("2026-08")
+        val beforeRaise = repo.getMonthSummary("2026-08")
+        assertTrue(beforeRaise.hasData)
+        assertEquals(840.0, beforeRaise.gross, 0.001) // 14h * 60
 
-        assertTrue(summary.hasData)
-        assertEquals(980.0, summary.gross, 0.001)
+        // A rate change is a single global value — it reshapes every
+        // entry's numbers, not just ones logged from today onward.
+        payDao.current = PaySettings(hourlyRate = 80.0, creditPoints = 2.25, pensionPct = 6.0)
+        val afterRaise = repo.getMonthSummary("2026-08")
+        assertEquals(1120.0, afterRaise.gross, 0.001) // 14h * 80
     }
 
     @Test
     fun `getMonthSummary with no logged days has no data`() = runTest {
         val summary = repo.getMonthSummary("2099-01")
         assertTrue(!summary.hasData)
+    }
+
+    @Test
+    fun `savePaySettings retroactively recomputes every logged day's money and queues it for backup`() = runTest {
+        repo.setEntryTimes("2026-08-03", "09:00", "17:00") // 7h
+        repo.markBackedUp("2026-08-03")
+        assertEquals(420.0, repo.getEntry("2026-08-03")!!.money!!, 0.001) // 7h * 60
+
+        repo.savePaySettings(
+            hourlyRate = 80.0,
+            creditPoints = 2.25,
+            pensionPct = 6.0,
+            overtimeEnabled = true,
+            savingsPct = 0.0,
+            transportationCosts = 0.0,
+            dailySpending = 0.0,
+        )
+
+        val entry = repo.getEntry("2026-08-03")!!
+        assertEquals(560.0, entry.money!!, 0.001) // 7h * 80, not the rate in effect when it was logged
+        assertTrue(!entry.backedUp) // corrected value must go out in the next backup
     }
 }
