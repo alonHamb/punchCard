@@ -221,12 +221,6 @@ private fun BigLogButton(isStartMode: Boolean, onClick: () -> Unit) {
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Black,
             )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                if (isStartMode) "Tap to record your start time" else "Tap to record your end time",
-                color = Color.White.copy(alpha = 0.9f),
-                fontSize = 13.sp,
-            )
         }
     }
 }
@@ -296,12 +290,6 @@ private fun BackupCard(pendingCount: Int, folderName: String?, onBackupNow: () -
                     color = Color(0xFF94A3B8),
                     fontSize = 11.sp,
                 )
-            } else {
-                Text(
-                    "Backs up automatically 18:00–06:00 while on wifi, into \"$folderName\".",
-                    color = Color(0xFF94A3B8),
-                    fontSize = 11.sp,
-                )
             }
         }
     }
@@ -350,15 +338,21 @@ private fun MonthCard(
                     val regularHours = s.totalHours - s.overtimeHours
                     if (s.overtimeHours > 0) {
                         // With overtime present, "Regular pay" only covers the
-                        // capped-at-8h/day portion, so it's noticeably less
+                        // capped-at-8.6h/day portion, so it's noticeably less
                         // than the month's actual total hours worked — show
                         // the real total up top so it's never just implied
                         // by (and mistaken for) the regular-hours figure.
                         MonthRow("Hours logged", fmtNum(s.totalHours) + "h", BrandTextOnCard, emphasize = true)
-                        MonthRow("Regular pay (${fmtNum(regularHours)}h, up to 8h/day)", "₪" + fmtNum(s.regularPay), BrandTextOnCard)
+                        MonthRow("Regular pay (${fmtNum(regularHours)}h, up to 8.6h/day)", "₪" + fmtNum(s.regularPay), BrandTextOnCard)
                         MonthRow("Overtime pay (${fmtNum(s.overtimeHours)}h @ 125%/150%)", "₪" + fmtNum(s.overtimePay), BrandTextOnCard)
+                        if (s.transportationCosts > 0) {
+                            MonthRow("Transportation reimbursement", "₪" + fmtNum(s.transportationCosts), BrandTextOnCard)
+                        }
                         MonthRow("Gross pay", "₪" + fmtNum(s.gross), BrandTextOnCard, emphasize = true)
                     } else {
+                        if (s.transportationCosts > 0) {
+                            MonthRow("Transportation reimbursement", "₪" + fmtNum(s.transportationCosts), BrandTextOnCard)
+                        }
                         MonthRow("Gross pay (${fmtNum(s.totalHours)}h logged)", "₪" + fmtNum(s.gross), BrandTextOnCard)
                     }
                     MonthRow("Income tax", "−₪" + fmtNum(s.incomeTax), BrandDanger)
@@ -427,10 +421,16 @@ private fun ProjectedMonthCard(
                     val regularHours = s.totalHours - s.overtimeHours
                     if (s.overtimeHours > 0) {
                         MonthRow("Hours (projected)", fmtNum(s.totalHours) + "h", BrandTextOnCard, emphasize = true)
-                        MonthRow("Regular pay (${fmtNum(regularHours)}h, up to 8h/day)", "₪" + fmtNum(s.regularPay), BrandTextOnCard)
+                        MonthRow("Regular pay (${fmtNum(regularHours)}h, up to 8.6h/day)", "₪" + fmtNum(s.regularPay), BrandTextOnCard)
                         MonthRow("Overtime pay (${fmtNum(s.overtimeHours)}h @ 125%/150%)", "₪" + fmtNum(s.overtimePay), BrandTextOnCard)
+                        if (s.transportationCosts > 0) {
+                            MonthRow("Transportation reimbursement", "₪" + fmtNum(s.transportationCosts), BrandTextOnCard)
+                        }
                         MonthRow("Gross pay", "₪" + fmtNum(s.gross), BrandTextOnCard, emphasize = true)
                     } else {
+                        if (s.transportationCosts > 0) {
+                            MonthRow("Transportation reimbursement", "₪" + fmtNum(s.transportationCosts), BrandTextOnCard)
+                        }
                         MonthRow("Gross pay (${fmtNum(s.totalHours)}h projected)", "₪" + fmtNum(s.gross), BrandTextOnCard)
                     }
                     MonthRow("Income tax", "−₪" + fmtNum(s.incomeTax), BrandDanger)

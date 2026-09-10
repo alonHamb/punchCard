@@ -59,10 +59,11 @@ object PayCalculator {
     // pre-holiday days — like the rest of this app's tax math, it's a
     // documented estimate, not a legal payroll calculation.
     // ---------------------------------------------------------------
-    const val REGULAR_DAILY_HOURS = 8.0
+    const val REGULAR_DAILY_HOURS = 8.6
     const val OVERTIME_TIER1_HOURS = 2.0  // the 9th and 10th hour of a day
     const val OVERTIME_RATE_TIER1 = 1.25
     const val OVERTIME_RATE_TIER2 = 1.50  // the 11th hour of a day onward
+
 
     private fun round2(n: Double): Double = round(n * 100.0) / 100.0
 
@@ -104,7 +105,7 @@ object PayCalculator {
      * as separate line items). When [overtimeEnabled] is false, or
      * [hours] doesn't exceed [REGULAR_DAILY_HOURS], overtimePay is 0.
      */
-    fun computeDailyPay(hours: Double, hourlyRate: Double, overtimeEnabled: Boolean): DailyPay {
+    fun computeDailyPay(hours: Double, hourlyRate: Double, overtimeEnabled: Boolean,): DailyPay {
         if (!overtimeEnabled || hours <= REGULAR_DAILY_HOURS) {
             val pay = round2(hours * hourlyRate)
             return DailyPay(regularHours = hours, overtimeHours = 0.0, regularPay = pay, overtimePay = 0.0, pay = pay)
@@ -166,6 +167,7 @@ object PayCalculator {
         val overtimeHours: Double = 0.0,
         val regularPay: Double = 0.0,
         val overtimePay: Double = 0.0,
+        val transportationCosts: Double = 0.0, // per-day reimbursement, summed across days worked (already included in gross)
         val gross: Double = 0.0,
         val incomeTax: Double = 0.0,
         val niHealth: Double = 0.0,
@@ -203,19 +205,21 @@ object PayCalculator {
         var overtimeHoursTotal = 0.0
         var regularPayTotal = 0.0
         var overtimePayTotal = 0.0
+        var transportationTotal = 0.0
         var lastDate = entries[0].date
-        for (e in entries) {
-            val hours = e.hours ?: continue
-            val settings = settingsForDate(e.date, getForDateOrBefore, getEarliest)
+        for (entry in entries) {
+            val hours = entry.hours ?: continue
+            val settings = settingsForDate(entry.date, getForDateOrBefore, getEarliest)
             if (settings != null) {
                 val daily = computeDailyPay(hours, settings.hourlyRate, settings.overtimeEnabled)
-                grossTotal += daily.pay
+                grossTotal += daily.pay + settings.transportationCosts
                 overtimeHoursTotal += daily.overtimeHours
                 regularPayTotal += daily.regularPay
                 overtimePayTotal += daily.overtimePay
+                transportationTotal += settings.transportationCosts
             }
             totalHours += hours
-            if (e.date > lastDate) lastDate = e.date
+            if (entry.date > lastDate) lastDate = entry.date
         }
 
         val settingsForTax = settingsForDate(lastDate, getForDateOrBefore, getEarliest)
@@ -240,6 +244,7 @@ object PayCalculator {
             overtimeHours = round2(overtimeHoursTotal),
             regularPay = round2(regularPayTotal),
             overtimePay = round2(overtimePayTotal),
+            transportationCosts = round2(transportationTotal),
             gross = round2(grossTotal),
             incomeTax = round2(incomeTax),
             niHealth = round2(niHealth),

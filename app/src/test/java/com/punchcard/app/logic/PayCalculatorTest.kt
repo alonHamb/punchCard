@@ -108,6 +108,44 @@ class PayCalculatorTest {
     }
 
     @Test
+    fun `transportation cost is added to gross once per day worked`() = runTest {
+        val settings = PaySettings(
+            effectiveDate = "2026-08-01",
+            hourlyRate = 60.0,
+            creditPoints = 2.25,
+            pensionPct = 6.0,
+            transportationCosts = 20.0,
+        )
+        val entries = listOf(
+            LogEntry(date = "2026-08-03", startTime = "09:00", endTime = "17:00", hours = 8.0),
+            LogEntry(date = "2026-08-04", startTime = "09:00", endTime = "17:00", hours = 8.0),
+        )
+        val summary = PayCalculator.computeMonthSummary(
+            monthStr = "2026-08",
+            entries = entries,
+            getForDateOrBefore = { settings },
+            getEarliest = { settings },
+        )
+        // 2 days * 20 = 40 transportation, on top of 16h * 60 = 960 pay.
+        assertEquals(40.0, summary.transportationCosts, 0.001)
+        assertEquals(1000.0, summary.gross, 0.001)
+    }
+
+    @Test
+    fun `zero transportation cost adds nothing to gross`() = runTest {
+        val settings = PaySettings(effectiveDate = "2026-08-01", hourlyRate = 60.0, creditPoints = 2.25, pensionPct = 6.0)
+        val entries = listOf(LogEntry(date = "2026-08-03", startTime = "09:00", endTime = "17:00", hours = 8.0))
+        val summary = PayCalculator.computeMonthSummary(
+            monthStr = "2026-08",
+            entries = entries,
+            getForDateOrBefore = { settings },
+            getEarliest = { settings },
+        )
+        assertEquals(0.0, summary.transportationCosts, 0.001)
+        assertEquals(480.0, summary.gross, 0.001)
+    }
+
+    @Test
     fun `no entries yields hasData false`() = runTest {
         val summary = PayCalculator.computeMonthSummary(
             monthStr = "2026-09",
@@ -128,22 +166,22 @@ class PayCalculatorTest {
 
     @Test
     fun `first two overtime hours pay 125 percent`() {
-        // 9 worked hours: 8 regular + 1 hour of tier-1 overtime.
+        // 9 worked hours: 8.6 regular + 0.4 hour of tier-1 overtime.
         val daily = PayCalculator.computeDailyPay(hours = 9.0, hourlyRate = 60.0, overtimeEnabled = true)
-        assertEquals(8.0, daily.regularHours, 0.001)
-        assertEquals(1.0, daily.overtimeHours, 0.001)
-        // 8*60 + 1*60*1.25 = 480 + 75 = 555
-        assertEquals(555.0, daily.pay, 0.001)
+        assertEquals(8.6, daily.regularHours, 0.001)
+        assertEquals(0.4, daily.overtimeHours, 0.001)
+        // 8.6*60 + 0.4*60*1.25 = 516 + 30 = 546
+        assertEquals(546.0, daily.pay, 0.001)
     }
 
     @Test
     fun `hours past ten pay 150 percent`() {
-        // 11 worked hours: 8 regular + 2 tier-1 (125%) + 1 tier-2 (150%).
+        // 11 worked hours: 8.6 regular + 2 tier-1 (125%) + 0.4 tier-2 (150%).
         val daily = PayCalculator.computeDailyPay(hours = 11.0, hourlyRate = 60.0, overtimeEnabled = true)
-        assertEquals(8.0, daily.regularHours, 0.001)
-        assertEquals(3.0, daily.overtimeHours, 0.001)
-        // 8*60 + 2*60*1.25 + 1*60*1.5 = 480 + 150 + 90 = 720
-        assertEquals(720.0, daily.pay, 0.001)
+        assertEquals(8.6, daily.regularHours, 0.001)
+        assertEquals(2.4, daily.overtimeHours, 0.001)
+        // 8.6*60 + 2*60*1.25 + 0.4*60*1.5 = 516 + 150 + 36 = 702
+        assertEquals(702.0, daily.pay, 0.001)
     }
 
     @Test
@@ -162,7 +200,8 @@ class PayCalculatorTest {
             pensionPct = 6.0,
             overtimeEnabled = true,
         )
-        // One regular 8h day, one 10h day (8 regular + 2 tier-1 overtime).
+        // One regular 8h day (under the 8.6h threshold), one 10h day
+        // (8.6 regular + 1.4 tier-1 overtime).
         val entries = listOf(
             LogEntry(date = "2026-08-03", startTime = "09:00", endTime = "17:00", hours = 8.0),
             LogEntry(date = "2026-08-04", startTime = "09:00", endTime = "19:00", hours = 10.0),
@@ -174,13 +213,13 @@ class PayCalculatorTest {
             getEarliest = { settings },
         )
         assertEquals(18.0, summary.totalHours, 0.001)
-        assertEquals(2.0, summary.overtimeHours, 0.001)
-        // Day 1: 480. Day 2: 8*60 + 2*60*1.25 = 480 + 150 = 630. Total 1110.
-        assertEquals(1110.0, summary.gross, 0.001)
-        // Regular pay: 8*60 (day 1) + 8*60 (day 2's regular portion) = 960.
-        assertEquals(960.0, summary.regularPay, 0.001)
-        // Overtime pay: day 2's 2 tier-1 hours at 125% = 2*60*1.25 = 150.
-        assertEquals(150.0, summary.overtimePay, 0.001)
+        assertEquals(1.4, summary.overtimeHours, 0.001)
+        // Day 1: 480. Day 2: 8.6*60 + 1.4*60*1.25 = 516 + 105 = 621. Total 1101.
+        assertEquals(1101.0, summary.gross, 0.001)
+        // Regular pay: 8*60 (day 1) + 8.6*60 (day 2's regular portion) = 480 + 516 = 996.
+        assertEquals(996.0, summary.regularPay, 0.001)
+        // Overtime pay: day 2's 1.4 tier-1 hours at 125% = 1.4*60*1.25 = 105.
+        assertEquals(105.0, summary.overtimePay, 0.001)
         assertEquals(summary.gross, summary.regularPay + summary.overtimePay, 0.001)
     }
 
@@ -264,9 +303,9 @@ class PayCalculatorTest {
     @Test
     fun `exactly ten hours is all tier-1 overtime with no tier-2`() {
         val daily = PayCalculator.computeDailyPay(hours = 10.0, hourlyRate = 60.0, overtimeEnabled = true)
-        assertEquals(2.0, daily.overtimeHours, 0.001)
-        // 8*60 + 2*60*1.25 = 480 + 150 = 630
-        assertEquals(630.0, daily.pay, 0.001)
+        assertEquals(1.4, daily.overtimeHours, 0.001)
+        // 8.6*60 + 1.4*60*1.25 = 516 + 105 = 621
+        assertEquals(621.0, daily.pay, 0.001)
     }
 
     @Test
